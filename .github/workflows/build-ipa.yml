@@ -1,0 +1,55 @@
+name: Build EarPulse iOS IPA
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    name: Build Unsigned IPA
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          echo "Available Xcode installations:"
+          ls -d /Applications/Xcode*.app || true
+          xcodebuild -version
+
+      - name: Build iOS Release (.app)
+        run: |
+          xcodebuild \
+            -project EarPulse.xcodeproj \
+            -scheme EarPulse \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            build
+
+      - name: Package EarPulse.ipa
+        run: |
+          APP_PATH="build/Build/Products/Release-iphoneos/EarPulse.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Error: EarPulse.app not found at $APP_PATH"
+            exit 1
+          fi
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -r -y EarPulse.ipa Payload
+          ls -lh EarPulse.ipa
+
+      - name: Upload EarPulse.ipa Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EarPulse-iOS-IPA
+          path: EarPulse.ipa
+          retention-days: 30

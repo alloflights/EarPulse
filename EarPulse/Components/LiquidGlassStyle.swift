@@ -2,56 +2,72 @@ import Combine
 import SwiftUI
 #if os(iOS)
 import UIKit
+#elseif os(macOS)
+import AppKit
 #endif
 
-/// iOS Taptic Engine 精细震动反馈工具（macOS 预览自动安全空实现）
+/// iOS Taptic Engine（常驻预热实例）+ macOS Force Touch 触控板双端震动反馈
 @MainActor
 enum Haptics {
+    #if os(iOS)
+    private static let selectionGen = UISelectionFeedbackGenerator()
+    private static let lightGen = UIImpactFeedbackGenerator(style: .light)
+    private static let softGen = UIImpactFeedbackGenerator(style: .soft)
+    private static let mediumGen = UIImpactFeedbackGenerator(style: .medium)
+    private static let notificationGen = UINotificationFeedbackGenerator()
+    #endif
+
     static func selection() {
         #if os(iOS)
-        let generator = UISelectionFeedbackGenerator()
-        generator.prepare()
-        generator.selectionChanged()
+        selectionGen.selectionChanged()
+        selectionGen.prepare()
+        #elseif os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
         #endif
     }
 
     static func light() {
         #if os(iOS)
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.prepare()
-        generator.impactOccurred()
+        lightGen.impactOccurred(intensity: 0.9)
+        lightGen.prepare()
+        #elseif os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         #endif
     }
 
     static func soft() {
         #if os(iOS)
-        let generator = UIImpactFeedbackGenerator(style: .soft)
-        generator.prepare()
-        generator.impactOccurred()
+        softGen.impactOccurred(intensity: 0.8)
+        softGen.prepare()
+        #elseif os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
         #endif
     }
 
     static func medium() {
         #if os(iOS)
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.prepare()
-        generator.impactOccurred()
+        mediumGen.impactOccurred(intensity: 1.0)
+        mediumGen.prepare()
+        #elseif os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         #endif
     }
 
     static func success() {
         #if os(iOS)
-        let generator = UINotificationFeedbackGenerator()
-        generator.prepare()
-        generator.notificationOccurred(.success)
+        notificationGen.notificationOccurred(.success)
+        notificationGen.prepare()
+        #elseif os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
         #endif
     }
 
     static func error() {
         #if os(iOS)
-        let generator = UINotificationFeedbackGenerator()
-        generator.prepare()
-        generator.notificationOccurred(.error)
+        notificationGen.notificationOccurred(.error)
+        notificationGen.prepare()
+        #elseif os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         #endif
     }
 }
@@ -64,7 +80,6 @@ enum GlassTheme {
     static let softBlue = Color(red: 0.58, green: 0.80, blue: 1.0)
     static let glassFill = Color.white.opacity(0.055)
 
-    /// 液态玻璃左上→右下斜向高光折射描边
     static let glassRimGradient = LinearGradient(
         stops: [
             .init(color: Color.white.opacity(0.36), location: 0.0),
@@ -76,7 +91,6 @@ enum GlassTheme {
         endPoint: .bottomTrailing
     )
 
-    /// 激活态蓝色液态胶囊内部高光渐变
     static let activeBlueGlass = LinearGradient(
         colors: [
             softBlue.opacity(0.92),
@@ -87,7 +101,7 @@ enum GlassTheme {
     )
 }
 
-/// 多层光学液态玻璃卡片修饰器（折射顶光 + 双层描边 + 深邃悬浮阴影）
+/// 多层光学液态玻璃卡片修饰器
 struct LiquidGlassCardModifier: ViewModifier {
     var cornerRadius: CGFloat = 28
     var padding: CGFloat = 22
@@ -103,7 +117,6 @@ struct LiquidGlassCardModifier: ViewModifier {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(GlassTheme.glassFill)
 
-                    // 顶部玻璃弧面镜面折射光
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(
                             LinearGradient(
@@ -130,7 +143,7 @@ struct LiquidGlassCardModifier: ViewModifier {
     }
 }
 
-/// 液态玻璃胶囊按钮样式（带按压物理回弹与微光增亮）
+/// 液态玻璃胶囊按钮样式
 struct LiquidGlassPillButtonStyle: ButtonStyle {
     var prominent: Bool = false
 
@@ -175,65 +188,70 @@ private final class BackdropDriftState: ObservableObject {
     @Published var drifted = false
 }
 
-/// 纯黑底 + 极缓慢流动的深海蓝液态环境光（透过玻璃卡片产生真实明暗折射）
+/// 纯黑底 + 流动深海蓝环境光（严格裁剪在屏幕边界内，绝不撑大外部 ZStack 宽度）
 struct LiquidGlassBackdrop: View {
     @StateObject private var state = BackdropDriftState()
 
     var body: some View {
-        ZStack {
-            GlassTheme.background
+        GlassTheme.background
+            .overlay {
+                GeometryReader { proxy in
+                    let w = proxy.size.width
+                    let h = proxy.size.height
 
-            // 主光斑：顶部柔和深海蓝缓慢呼吸漂移
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            GlassTheme.accentBlue.opacity(0.24),
-                            GlassTheme.deepBlue.opacity(0.10),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 10,
-                        endRadius: 260
-                    )
-                )
-                .frame(width: 520, height: 520)
-                .offset(
-                    x: state.drifted ? 55 : -55,
-                    y: state.drifted ? -280 : -320
-                )
-                .blur(radius: 40)
+                    ZStack {
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        GlassTheme.accentBlue.opacity(0.24),
+                                        GlassTheme.deepBlue.opacity(0.10),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 10,
+                                    endRadius: w * 0.68
+                                )
+                            )
+                            .frame(width: w * 1.35, height: w * 1.35)
+                            .position(
+                                x: state.drifted ? w * 0.62 : w * 0.38,
+                                y: state.drifted ? h * 0.14 : h * 0.08
+                            )
+                            .blur(radius: 36)
 
-            // 次光斑：中下部极微弱折射光，给悬浮底栏提供通透感
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            GlassTheme.accentBlue.opacity(0.11),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 10,
-                        endRadius: 200
-                    )
-                )
-                .frame(width: 380, height: 380)
-                .offset(
-                    x: state.drifted ? -70 : 70,
-                    y: state.drifted ? 320 : 270
-                )
-                .blur(radius: 50)
-        }
-        .ignoresSafeArea()
-        .onAppear {
-            withAnimation(.easeInOut(duration: 9.0).repeatForever(autoreverses: true)) {
-                state.drifted = true
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        GlassTheme.accentBlue.opacity(0.12),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 10,
+                                    endRadius: w * 0.52
+                                )
+                            )
+                            .frame(width: w * 1.0, height: w * 1.0)
+                            .position(
+                                x: state.drifted ? w * 0.32 : w * 0.68,
+                                y: state.drifted ? h * 0.88 : h * 0.82
+                            )
+                            .blur(radius: 44)
+                    }
+                    .frame(width: w, height: h)
+                }
             }
-        }
+            .clipped()
+            .ignoresSafeArea()
+            .onAppear {
+                withAnimation(.easeInOut(duration: 9.0).repeatForever(autoreverses: true)) {
+                    state.drifted = true
+                }
+            }
     }
 }
 
-/// 级联弹性入场修饰器（让卡片错峰轻盈浮现）
 @MainActor
 private final class StaggerAppearState: ObservableObject {
     @Published var visible = false

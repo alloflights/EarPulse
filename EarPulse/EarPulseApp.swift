@@ -1,31 +1,54 @@
+import Combine
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
+
+@MainActor
+private final class LaunchState: ObservableObject {
+    @Published var showLaunchOverlay = true
+}
 
 @main
 struct EarPulseApp: App {
-    @StateObject private var healthManager = HealthKitManager()
+    @StateObject private var dataStore = HealthDataStore()
     @StateObject private var audioMonitor = AudioRouteMonitor()
-    @State private var showLaunchAnimation = true
+    @StateObject private var lang = LanguageStore()
+    @StateObject private var launchState = LaunchState()
 
     var body: some Scene {
         WindowGroup {
             ZStack {
-                ContentView(onReplayLaunch: {
-                    showLaunchAnimation = true
-                })
-                .environmentObject(healthManager)
-                .environmentObject(audioMonitor)
+                ContentView()
+                    .environmentObject(dataStore)
+                    .environmentObject(audioMonitor)
+                    .environmentObject(lang)
+                    .preferredColorScheme(.dark)
+                    .task {
+                        await dataStore.bootstrapOnLaunch()
+                    }
 
-                if showLaunchAnimation {
-                    LaunchAnimationView(
+                if launchState.showLaunchOverlay {
+                    MinimalLaunchOverlay(
                         deviceName: audioMonitor.connectedDeviceName,
                         category: audioMonitor.connectedCategory
                     ) {
-                        showLaunchAnimation = false
+                        launchState.showLaunchOverlay = false
                     }
-                    .transition(.opacity)
                     .zIndex(1)
                 }
             }
+            #if os(macOS)
+            .frame(width: 393, height: 852)
+            .onAppear {
+                NSApplication.shared.setActivationPolicy(.regular)
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            }
+            #endif
         }
+        #if os(macOS)
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        #endif
     }
 }

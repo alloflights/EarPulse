@@ -1,20 +1,21 @@
-import AVFAudio
 import Combine
 import Foundation
+#if os(iOS)
+import AVFAudio
+#endif
 
-/// 实时监听当前连接的耳机设备（蓝牙 / AirPods / 有线）
+/// 实时监听当前真实连接的蓝牙 / 有线耳机（iOS 真机实时检测，macOS 预览兼容）
 @MainActor
 final class AudioRouteMonitor: ObservableObject {
     @Published var isConnected: Bool = false
-    @Published var connectedDeviceName: String = "AirPods Pro (第 2 代)"
+    @Published var connectedDeviceName: String?
     @Published var connectedCategory: HeadphoneCategory = .airPodsPro
-    @Published var portTypeDescription: String = "蓝牙音频"
-    @Published var isSimulatedSelection: Bool = true
+    @Published var connectionTypeLabel: String = ""
 
     private var routeChangeObserver: NSObjectProtocol?
 
     init() {
-        refreshCurrentRoute(allowFallback: true)
+        refreshCurrentRoute()
         startObserving()
     }
 
@@ -24,57 +25,43 @@ final class AudioRouteMonitor: ObservableObject {
         }
     }
 
-    func startObserving() {
+    private func startObserving() {
+        #if os(iOS)
         routeChangeObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.routeChangeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.refreshCurrentRoute(allowFallback: false)
+                self?.refreshCurrentRoute()
             }
         }
+        #endif
     }
 
-    /// 读取 AVAudioSession 当前输出路由中的耳机信息
-    func refreshCurrentRoute(allowFallback: Bool = false) {
-        let session = AVAudioSession.sharedInstance()
-        let outputs = session.currentRoute.outputs
-
+    func refreshCurrentRoute() {
+        #if os(iOS)
+        let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
         let headphonePorts: Set<AVAudioSession.Port> = [
-            .bluetoothA2DP,
-            .bluetoothHFP,
-            .bluetoothLE,
-            .headphones,
-            .headsetMic,
-            .usbAudio
+            .bluetoothA2DP, .bluetoothHFP, .bluetoothLE,
+            .headphones, .headsetMic, .usbAudio
         ]
 
-        if let activePort = outputs.first(where: { headphonePorts.contains($0.portType) }) {
-            let isWired = activePort.portType == .headphones || activePort.portType == .headsetMic || activePort.portType == .usbAudio
+        if let active = outputs.first(where: { headphonePorts.contains($0.portType) }) {
+            let isWired = active.portType == .headphones || active.portType == .headsetMic || active.portType == .usbAudio
             isConnected = true
-            isSimulatedSelection = false
-            connectedDeviceName = activePort.portName
-            connectedCategory = HeadphoneCategory.infer(from: activePort.portName, isWired: isWired)
-            portTypeDescription = isWired ? "有线直连" : "蓝牙无线连接"
-        } else if allowFallback {
-            // 模拟器或未佩戴耳机时，保持演示耳机用于展示贴图与开启动画
-            isConnected = false
-            isSimulatedSelection = true
-            connectedDeviceName = "AirPods Pro (第 2 代)"
-            connectedCategory = .airPodsPro
-            portTypeDescription = "演示设备（未检测到真机耳机）"
+            connectedDeviceName = active.portName
+            connectedCategory = HeadphoneCategory.infer(from: active.portName, isWired: isWired)
+            connectionTypeLabel = isWired ? "有线已连接" : "蓝牙已连接"
         } else {
             isConnected = false
-            portTypeDescription = "当前未连接耳机"
+            connectedDeviceName = nil
+            connectionTypeLabel = ""
         }
-    }
-
-    /// 供用户在“耳机库”点击切换预览不同耳机的贴图与连接动效
-    func selectPreviewHeadphone(name: String, category: HeadphoneCategory) {
-        connectedDeviceName = name
-        connectedCategory = category
-        isSimulatedSelection = true
-        portTypeDescription = category == .wired ? "有线预览模式" : "蓝牙预览模式"
+        #else
+        isConnected = false
+        connectedDeviceName = nil
+        connectionTypeLabel = ""
+        #endif
     }
 }

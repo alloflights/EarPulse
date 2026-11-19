@@ -1,238 +1,148 @@
-import Charts
 import SwiftUI
 
-/// 多耳机区分与对比视图：按每款耳机展示累计使用时间、占比、活跃天数、单次最长与分贝护耳评分
+/// 旗舰级液态玻璃「设备」页（舞台光晕 + 级联浮现 + 微光进度条）
 struct DevicesView: View {
-    @EnvironmentObject private var healthManager: HealthKitManager
+    @EnvironmentObject private var dataStore: HealthDataStore
     @EnvironmentObject private var audioMonitor: AudioRouteMonitor
-
-    var onSelectDevicePreview: () -> Void
-    @State private var inspectedDevice: HeadphoneUsageSummary?
+    @EnvironmentObject private var lang: LanguageStore
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 18) {
-                    // 1. 多耳机护耳洞察
-                    insightCard
-
-                    // 2. 每款耳机累计使用时间对比图
-                    if healthManager.deviceSummaries.count >= 2 {
-                        usageHoursComparisonChartCard
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 26) {
+                currentConnectionCard
+                    .staggeredAppear(delay: 0.04)
+                    .scrollTransition { content, phase in
+                        content
+                            .scaleEffect(phase.isIdentity ? 1.0 : 0.96)
+                            .opacity(phase.isIdentity ? 1.0 : 0.84)
                     }
 
-                    // 3. 逐设备详细使用时间与分贝档案列表
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("每款耳机使用时间与档案 (\(healthManager.deviceSummaries.count))")
-                            .font(.headline)
-                            .padding(.horizontal, 4)
+                if !dataStore.deviceSummaries.isEmpty {
+                    VStack(alignment: .leading, spacing: 18) {
+                        Text(lang.byDevice)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.6))
 
-                        ForEach(healthManager.deviceSummaries) { summary in
-                            deviceCard(summary)
+                        ForEach(dataStore.deviceSummaries) { device in
+                            deviceRow(device)
                         }
                     }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("我的耳机")
-            .sheet(item: $inspectedDevice) { device in
-                DevicePopupPreviewSheet(device: device) {
-                    audioMonitor.selectPreviewHeadphone(name: device.deviceName, category: device.category)
-                    inspectedDevice = nil
-                    onSelectDevicePreview()
-                }
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-            }
-        }
-    }
-
-    private var insightCard: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "lightbulb.max.fill")
-                .font(.title3)
-                .foregroundStyle(.teal)
-                .padding(10)
-                .background(Color.teal.opacity(0.12), in: Circle())
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text("多耳机护耳洞察")
-                    .font(.subheadline.weight(.bold))
-                Text(healthManager.multiDeviceInsight)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-
-    private var usageHoursComparisonChartCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("每款耳机累计佩戴时长对比")
-                .font(.headline)
-
-            Chart(healthManager.deviceSummaries) { item in
-                BarMark(
-                    x: .value("累计小时", item.totalMinutes / 60.0),
-                    y: .value("耳机", item.deviceName)
-                )
-                .foregroundStyle(item.category.accentColor.gradient)
-                .cornerRadius(6)
-                .annotation(position: .trailing) {
-                    Text(item.formattedDuration)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(height: CGFloat(max(140, healthManager.deviceSummaries.count * 44)))
-        }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-
-    private func deviceCard(_ summary: HeadphoneUsageSummary) -> some View {
-        let isActive = audioMonitor.connectedDeviceName == summary.deviceName
-
-        return Button {
-            inspectedDevice = summary
-        } label: {
-            VStack(spacing: 10) {
-                HStack(spacing: 14) {
-                    HeadphoneArtworkView(
-                        category: summary.category,
-                        size: 62,
-                        glowColor: summary.category.accentColor,
-                        animateFloating: false,
-                        showSoundWaves: false
-                    )
-                    .frame(width: 72, height: 72)
-                    .background(summary.category.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack(spacing: 6) {
-                            Text(summary.deviceName)
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
-                            if isActive {
-                                Text("当前展示")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 2)
-                                    .background(summary.category.accentColor, in: Capsule())
-                            }
-                        }
-
-                        // 突出每款耳机累计使用时间
-                        HStack(alignment: .firstTextBaseline, spacing: 3) {
-                            Text(summary.formattedDuration)
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
-                                .foregroundStyle(summary.category.accentColor)
-                            Text("· 占比 \(Int(round(summary.sharePercentage)))%")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        HStack(spacing: 10) {
-                            Label("\(Int(round(summary.averageDecibels))) dB 均值", systemImage: "waveform")
-                            Label("活跃 \(summary.activeDays) 天", systemImage: "calendar")
-                        }
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    .liquidGlassCard(cornerRadius: 28, padding: 22)
+                    .staggeredAppear(delay: 0.12)
+                    .scrollTransition { content, phase in
+                        content
+                            .scaleEffect(phase.isIdentity ? 1.0 : 0.96)
+                            .opacity(phase.isIdentity ? 1.0 : 0.84)
                     }
-
-                    Spacer(minLength: 0)
-                }
-
-                // 底部次级数据条：单次最长 + 护耳评分
-                HStack {
-                    Text("单次最长 \(DurationFormatter.hoursMinutes(minutes: summary.longestSessionMinutes))")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text("护耳分 \(summary.earHealthScore)")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(summary.level.color)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(summary.level.color.opacity(0.12), in: Capsule())
                 }
             }
-            .padding(14)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// 仿 AirPods 弹窗风格的耳机 3D 详情预览弹窗
-private struct DevicePopupPreviewSheet: View {
-    let device: HeadphoneUsageSummary
-    let onSetActive: () -> Void
-
-    var body: some View {
-        VStack(spacing: 18) {
-            Spacer().frame(height: 6)
-
-            Text(device.deviceName)
-                .font(.title3.weight(.bold))
-
-            HeadphoneArtworkView(
-                category: device.category,
-                size: 140,
-                glowColor: device.level.color,
-                animateFloating: true,
-                showSoundWaves: true
-            )
-            .frame(height: 162)
-
-            HStack(spacing: 22) {
-                VStack(spacing: 4) {
-                    Text(device.formattedDuration)
-                        .font(.headline.bold())
-                        .foregroundStyle(device.category.accentColor)
-                    Text("累计佩戴")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                VStack(spacing: 4) {
-                    Text("\(Int(round(device.averageDecibels))) dB")
-                        .font(.headline.bold())
-                        .foregroundStyle(device.level.color)
-                    Text("平均分贝")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                VStack(spacing: 4) {
-                    Text("\(device.activeDays) 天")
-                        .font(.headline.bold())
-                    Text("活跃天数")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Button {
-                onSetActive()
-            } label: {
-                Text("在首页以该耳机贴图展示")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(device.category.accentColor)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .padding(.horizontal, 20)
-
-            Spacer()
+            .padding(.top, 12)
+            .padding(.bottom, 114)
         }
-        .padding()
+        .onAppear {
+            audioMonitor.refreshCurrentRoute()
+        }
+    }
+
+    private var currentConnectionCard: some View {
+        let displayCategory: HeadphoneCategory = audioMonitor.isConnected
+            ? audioMonitor.connectedCategory
+            : (dataStore.mostUsedDevice?.category ?? .airPodsPro)
+
+        return VStack(spacing: 20) {
+            HStack {
+                HStack(spacing: 7) {
+                    Circle()
+                        .fill(audioMonitor.isConnected ? GlassTheme.accentBlue : Color.white.opacity(0.28))
+                        .frame(width: 7, height: 7)
+                        .shadow(color: audioMonitor.isConnected ? GlassTheme.accentBlue : .clear, radius: 5)
+                    Text(audioMonitor.isConnected ? lang.connected : lang.notConnected)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.62))
+                }
+                Spacer()
+            }
+
+            AppleHeadphoneIcon(
+                category: displayCategory,
+                size: 118,
+                animated: true
+            )
+            .frame(height: 142)
+
+            VStack(spacing: 6) {
+                if let name = audioMonitor.connectedDeviceName {
+                    Text(name)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+                } else if let top = dataStore.mostUsedDevice {
+                    Text(top.deviceName)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+                    Text(top.formattedDuration)
+                        .font(.footnote.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(GlassTheme.softBlue)
+                } else {
+                    Text(lang.notConnected)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .liquidGlassCard(cornerRadius: 30, padding: 26)
+    }
+
+    private func deviceRow(_ device: HeadphoneUsageSummary) -> some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 16) {
+                AppleHeadphoneIcon(category: device.category, size: 38, animated: false)
+                    .frame(width: 54, height: 54)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(GlassTheme.glassRimGradient, lineWidth: 0.9)
+                    )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(device.deviceName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+
+                    Text("\(lang.categoryTitle(device.category)) · \(lang.daysCount(device.activeDays))")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.48))
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(device.formattedDuration)
+                        .font(.subheadline.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(GlassTheme.softBlue)
+                    Text("\(Int(round(device.sharePercentage)))%")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.42))
+                }
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.08))
+                    Capsule()
+                        .fill(GlassTheme.activeBlueGlass)
+                        .frame(width: max(6, geo.size.width * CGFloat(device.sharePercentage / 100.0)))
+                        .shadow(color: GlassTheme.accentBlue.opacity(0.45), radius: 5, x: 0, y: 0)
+                }
+            }
+            .frame(height: 5)
+        }
+        .padding(.vertical, 6)
     }
 }

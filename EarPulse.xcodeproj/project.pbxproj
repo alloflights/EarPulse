@@ -301,7 +301,7 @@
 			defaultConfigurationName = Release;
 		};
 		AA0800020000000000000002 /* Build configuration list for PBXNativeTarget "EarPulse" */ = {
-			isa = XCBuildConfigurationList;
+			isa = XCConfigurationList;
 			buildConfigurations = (
 				AA1000030000000000000003 /* Debug */,
 				AA1000040000000000000004 /* Release */,

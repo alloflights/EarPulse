@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-ipa:
     name: Build Unsigned IPA (iOS 26 Liquid Glass)
@@ -52,3 +55,19 @@ jobs:
           name: EarPulse-iOS-IPA
           path: EarPulse.ipa
           retention-days: 30
+
+      - name: Publish EarPulse.ipa to GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view latest >/dev/null 2>&1; then
+            gh release upload latest EarPulse.ipa --clobber
+            gh release edit latest \
+              --title "earuseage Latest" \
+              --notes "最新自动构建 iOS IPA（含玻璃质感桌面小组件，Commit: ${GITHUB_SHA::7}）"
+          else
+            gh release create latest EarPulse.ipa \
+              --title "earuseage Latest" \
+              --notes "最新自动构建 iOS IPA（含玻璃质感桌面小组件，Commit: ${GITHUB_SHA::7}）" \
+              --latest
+          fi

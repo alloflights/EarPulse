@@ -22,86 +22,50 @@ struct EarWidgetProvider: TimelineProvider {
         let now = Date()
         let snap = EarWidgetSnapshot.loadFromSharedStore() ?? .empty
         let entry = EarWidgetEntry(date: now, snapshot: snap)
-        // 每 30 分钟自动刷新一次时间线，同时主 App 同步时也会立即触发 reloadAllTimelines
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(1800)
         completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
     }
 }
 
-// MARK: - 玻璃质感小组件背板
-private struct WidgetGlassBackdrop: View {
+// MARK: - 完全透明玻璃背板（与 iOS 26 原生透明液态玻璃小组件一致，透出桌面壁纸，保留彩色强调色）
+private struct ClearLiquidGlassWidgetBackdrop: View {
     var body: some View {
         ZStack {
-            LinearGradient(
-                stops: [
-                    .init(color: Color(red: 0.05, green: 0.14, blue: 0.34), location: 0.0),
-                    .init(color: Color(red: 0.02, green: 0.06, blue: 0.17), location: 0.55),
-                    .init(color: Color(red: 0.01, green: 0.03, blue: 0.09), location: 1.0)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            if #available(iOS 26.0, macOS 26.0, *) {
+                // 让系统原生液态玻璃完全透出，不铺任何不透明底色
+                Color.clear
+            } else {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .opacity(0.35)
+            }
 
-            // 玻璃折射柔光斑
-            RadialGradient(
-                colors: [
-                    Color(red: 0.38, green: 0.72, blue: 1.0).opacity(0.32),
-                    Color(red: 0.18, green: 0.48, blue: 0.96).opacity(0.10),
-                    Color.clear
-                ],
-                center: .topLeading,
-                startRadius: 4,
-                endRadius: 180
-            )
-
-            RadialGradient(
-                colors: [
-                    Color(red: 0.24, green: 0.59, blue: 1.0).opacity(0.20),
-                    Color.clear
-                ],
-                center: .bottomTrailing,
-                startRadius: 4,
-                endRadius: 150
-            )
-
-            // 玻璃高光微雾层
-            LinearGradient(
-                colors: [
-                    Color.white.opacity(0.16),
-                    Color.white.opacity(0.03),
-                    Color.clear,
-                    Color.white.opacity(0.06)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-        .overlay(
+            // 极轻玻璃边缘反光描边，提升通透立体感
             ContainerRelativeShape()
                 .strokeBorder(
                     LinearGradient(
                         colors: [
                             Color.white.opacity(0.45),
-                            Color.white.opacity(0.10),
-                            Color(red: 0.35, green: 0.68, blue: 1.0).opacity(0.28),
-                            Color.white.opacity(0.14)
+                            Color.white.opacity(0.12),
+                            Color(red: 0.30, green: 0.66, blue: 1.0).opacity(0.22),
+                            Color.white.opacity(0.18)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: 1
+                    lineWidth: 0.9
                 )
-        )
+        }
     }
 }
 
-// MARK: - 24 小时今日使用频率微柱状图
+// MARK: - 24 小时今日使用频率微柱状图（保留彩色电光蓝强调色）
 private struct HourlyFrequencyBars: View {
     let hourlyMinutes: [Double]
     var showAxisLabels: Bool = false
 
-    private let accentBlue = Color(red: 0.26, green: 0.62, blue: 1.0)
-    private let softBlue = Color(red: 0.62, green: 0.85, blue: 1.0)
+    private let accentBlue = Color(red: 0.24, green: 0.60, blue: 1.0)
+    private let softBlue = Color(red: 0.58, green: 0.84, blue: 1.0)
 
     var body: some View {
         let slots = normalizedSlots
@@ -128,7 +92,7 @@ private struct HourlyFrequencyBars: View {
                                             endPoint: .bottom
                                         )
                                     )
-                                    : AnyShapeStyle(Color.white.opacity(0.14))
+                                    : AnyShapeStyle(Color.white.opacity(0.22))
                             )
                             .frame(width: barWidth, height: barHeight)
                     }
@@ -148,7 +112,7 @@ private struct HourlyFrequencyBars: View {
                     Spacer()
                 }
                 .font(.system(size: 9, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.45))
+                .foregroundStyle(.white.opacity(0.62))
             }
         }
     }
@@ -163,13 +127,13 @@ private struct HourlyFrequencyBars: View {
     }
 }
 
-// MARK: - 小组件主视图（支持小号 2x2 与中号 4x2）
+// MARK: - 小组件主视图（完全透明玻璃底板 + 彩色强调色，支持小号 2x2 与中号 4x2）
 struct EarPulseWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     let entry: EarWidgetEntry
 
-    private let softBlue = Color(red: 0.62, green: 0.85, blue: 1.0)
-    private let accentBlue = Color(red: 0.26, green: 0.62, blue: 1.0)
+    private let softBlue = Color(red: 0.58, green: 0.84, blue: 1.0)
+    private let accentBlue = Color(red: 0.24, green: 0.60, blue: 1.0)
 
     var body: some View {
         Group {
@@ -181,7 +145,7 @@ struct EarPulseWidgetEntryView: View {
             }
         }
         .containerBackground(for: .widget) {
-            WidgetGlassBackdrop()
+            ClearLiquidGlassWidgetBackdrop()
         }
     }
 
@@ -192,11 +156,11 @@ struct EarPulseWidgetEntryView: View {
             HStack(spacing: 5) {
                 Image(systemName: "airpodspro")
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(softBlue)
+                    .foregroundStyle(accentBlue)
                     .widgetAccentable()
                 Text(entry.snapshot.activeDeviceName)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.75))
+                    .foregroundStyle(.white.opacity(0.88))
                     .lineLimit(1)
             }
 
@@ -208,14 +172,14 @@ struct EarPulseWidgetEntryView: View {
                         .foregroundStyle(.white)
                     Text("h")
                         .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(.white.opacity(0.70))
                     Text("\(split.mins)")
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(.white)
                     Text("m")
                         .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(.white.opacity(0.70))
                 }
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -223,12 +187,13 @@ struct EarPulseWidgetEntryView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "waveform")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(softBlue)
+                        .foregroundStyle(accentBlue)
                         .widgetAccentable()
                     Text(formatDB(entry.snapshot.todayAverageDecibels))
                         .font(.caption.weight(.bold))
                         .monospacedDigit()
                         .foregroundStyle(softBlue)
+                        .widgetAccentable()
                 }
             }
 
@@ -238,6 +203,7 @@ struct EarPulseWidgetEntryView: View {
                 .frame(height: 36)
                 .widgetAccentable()
         }
+        .shadow(color: .black.opacity(0.22), radius: 3, x: 0, y: 1)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
@@ -250,11 +216,11 @@ struct EarPulseWidgetEntryView: View {
                 HStack(spacing: 5) {
                     Image(systemName: "airpodspro")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(softBlue)
+                        .foregroundStyle(accentBlue)
                         .widgetAccentable()
                     Text("earuseage")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.65))
+                        .foregroundStyle(.white.opacity(0.80))
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -265,27 +231,27 @@ struct EarPulseWidgetEntryView: View {
                             .foregroundStyle(.white)
                         Text("h")
                             .font(.caption2.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.55))
+                            .foregroundStyle(.white.opacity(0.70))
                         Text("\(split.mins)")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(.white)
                         Text("m")
                             .font(.caption2.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.55))
+                            .foregroundStyle(.white.opacity(0.70))
                     }
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
 
                     Text(entry.snapshot.activeDeviceName)
                         .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(.white.opacity(0.75))
                         .lineLimit(1)
                 }
 
                 Spacer(minLength: 2)
 
-                // 今日平均分贝玻璃胶囊
+                // 今日平均分贝彩色透明玻璃胶囊
                 HStack(spacing: 5) {
                     Image(systemName: "waveform")
                         .font(.caption2.weight(.semibold))
@@ -300,24 +266,25 @@ struct EarPulseWidgetEntryView: View {
                 .padding(.vertical, 5)
                 .background(
                     Capsule()
-                        .fill(accentBlue.opacity(0.22))
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.6))
+                        .fill(accentBlue.opacity(0.32))
+                        .overlay(Capsule().strokeBorder(softBlue.opacity(0.45), lineWidth: 0.7))
                 )
             }
             .frame(width: 118, alignment: .leading)
 
-            // 右侧：今日 24 小时使用频率柱状图玻璃面板
+            // 右侧：今日 24 小时使用频率柱状图（纯透明通透玻璃内框）
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("今日频率")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.68))
+                        .foregroundStyle(.white.opacity(0.82))
                     Spacer()
                     if entry.snapshot.weekAverageDecibels > 0 {
                         Text("7d \(Int(round(entry.snapshot.weekAverageDecibels))) dB")
                             .font(.system(size: 10, weight: .semibold, design: .rounded))
                             .monospacedDigit()
-                            .foregroundStyle(softBlue.opacity(0.85))
+                            .foregroundStyle(softBlue)
+                            .widgetAccentable()
                     }
                 }
 
@@ -331,10 +298,11 @@ struct EarPulseWidgetEntryView: View {
                     .fill(Color.white.opacity(0.06))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.7)
+                            .strokeBorder(Color.white.opacity(0.22), lineWidth: 0.7)
                     )
             )
         }
+        .shadow(color: .black.opacity(0.22), radius: 3, x: 0, y: 1)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 

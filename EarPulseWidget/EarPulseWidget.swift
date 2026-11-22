@@ -1,10 +1,131 @@
 import SwiftUI
 import WidgetKit
+#if os(iOS)
+import HealthKit
+#endif
 
 struct EarWidgetEntry: TimelineEntry {
     let date: Date
     let snapshot: EarWidgetSnapshot
 }
+
+// MARK: - 小组件直连 HealthKit 兜底读取（即使签名证书未配置 App Group 也能直接拉取真实今日数据）
+#if os(iOS)
+private enum WidgetHealthKitFallback {
+    static func fetchLatestSnapshot(completion: @escaping (EarWidgetSnapshot?) -> Void) {
+        guard HKHealthStore.isHealthDataAvailable(),
+              let exposureType = HKQuantityType.quantityType(forIdentifier: .headphoneAudioExposure) else {
+            completion(nil)
+            return
+        }
+
+        let store = HKHealthStore()
+        let calendar = Calendar.current
+        let now = Date()
+        let today = calendar.startOfDay(for: now)
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? now
+        let weekStart = calendar.date(byAdding: .day, value: -6, to: today) ?? today
+
+        let predicate = HKQuery.predicateForSamples(withStart: weekStart, end: now, options: .strictStartDate)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+
+        let query = HKSampleQuery(
+            sampleType: exposureType,
+            predicate: predicate,
+            limit: HKObjectQueryNoLimit,
+            sortDescriptors: [sort]
+        ) { _, results, _ in
+            guard let samples = results as? [HKQuantitySample], !samples.isEmpty else {
+                completion(nil)
+                return
+            }
+
+            let unit = HKUnit.decibelAWeightedSoundPressureLevel()
+            let todaySamples = samples.filter { $0.endDate > today && $0.startDate < tomorrow }
+
+            var hourly = Array(repeating: 0.0, count: 24)
+            var todaySpans: [(start: Date, end: Date)] = []
+
+            for sample in todaySamples {
+                let s = max(sample.startDate, today)
+                let e = min(sample.endDate, tomorrow)
+                guard e > s else { continue }
+                todaySpans.append((s, e))
+
+                var cursor = s
+                while cursor < e {
+                    let hour = calendar.component(.hour, from: cursor)
+                    let hourFloor = calendar.dateInterval(of: .hour, for: cursor)?.start ?? cursor
+                    let nextHour = calendar.date(byAdding: .hour, value: 1, to: hourFloor) ?? tomorrow
+                    let segEnd = min(e, nextHour)
+                    guard segEnd > cursor else { break }
+                    let mins = segEnd.timeIntervalSince(cursor) / 60.0
+                    if hour >= 0 && hour < 24 && mins > 0 {
+                        hourly[hour] = min(60.0, hourly[hour] + mins)
+                    }
+                    cursor = segEnd
+                }
+            }
+
+            let todayTotal = mergedMinutes(todaySpans)
+            let todayDb = weightedAvgDb(todaySamples, unit: unit)
+            let weekDb = weightedAvgDb(samples, unit: unit)
+
+            let latestSample = todaySamples.first ?? samples.first
+            let deviceName: String
+            if let name = latestSample?.device?.name, !name.trimmingCharacters(in: .whitespaces).isEmpty {
+                deviceName = name
+            } else if let model = latestSample?.device?.model, !model.trimmingCharacters(in: .whitespaces).isEmpty {
+                deviceName = model
+            } else {
+                deviceName = "earuseage"
+            }
+
+            completion(
+                EarWidgetSnapshot(
+                    updatedAt: now,
+                    todayTotalMinutes: todayTotal,
+                    todayAverageDecibels: todayDb,
+                    weekAverageDecibels: weekDb,
+                    activeDeviceName: deviceName,
+                    hourlyMinutes: hourly
+                )
+            )
+        }
+        store.execute(query)
+    }
+
+    private static func mergedMinutes(_ spans: [(start: Date, end: Date)]) -> Double {
+        let sorted = spans.sorted { $0.start < $1.start }
+        guard let first = sorted.first else { return 0 }
+        var merged: [(start: Date, end: Date)] = [first]
+        for span in sorted.dropFirst() {
+            var last = merged[merged.count - 1]
+            if span.start <= last.end {
+                if span.end > last.end {
+                    last.end = span.end
+                    merged[merged.count - 1] = last
+                }
+            } else {
+                merged.append(span)
+            }
+        }
+        return merged.reduce(0.0) { $0 + max(0, $1.end.timeIntervalSince($1.start)) / 60.0 }
+    }
+
+    private static func weightedAvgDb(_ samples: [HKQuantitySample], unit: HKUnit) -> Double {
+        guard !samples.isEmpty else { return 0 }
+        var weighted = 0.0
+        var total = 0.0
+        for s in samples {
+            let mins = max(s.endDate.timeIntervalSince(s.startDate) / 60.0, 0.2)
+            weighted += s.quantity.doubleValue(for: unit) * mins
+            total += mins
+        }
+        return total > 0 ? weighted / total : 0
+    }
+}
+#endif
 
 struct EarWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> EarWidgetEntry {
@@ -12,18 +133,47 @@ struct EarWidgetProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (EarWidgetEntry) -> Void) {
-        let snap = context.isPreview
-            ? (EarWidgetSnapshot.loadFromSharedStore() ?? .placeholder)
-            : (EarWidgetSnapshot.loadFromSharedStore() ?? .empty)
-        completion(EarWidgetEntry(date: Date(), snapshot: snap))
+        if let shared = EarWidgetSnapshot.loadFromSharedStore(), shared.todayTotalMinutes > 0 || shared.weekAverageDecibels > 0 {
+            completion(EarWidgetEntry(date: Date(), snapshot: shared))
+            return
+        }
+        if context.isPreview {
+            completion(EarWidgetEntry(date: Date(), snapshot: .placeholder))
+            return
+        }
+        #if os(iOS)
+        WidgetHealthKitFallback.fetchLatestSnapshot { hkSnap in
+            completion(EarWidgetEntry(date: Date(), snapshot: hkSnap ?? .empty))
+        }
+        #else
+        completion(EarWidgetEntry(date: Date(), snapshot: .empty))
+        #endif
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<EarWidgetEntry>) -> Void) {
         let now = Date()
-        let snap = EarWidgetSnapshot.loadFromSharedStore() ?? .empty
-        let entry = EarWidgetEntry(date: now, snapshot: snap)
-        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(1800)
-        completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 20, to: now) ?? now.addingTimeInterval(1200)
+
+        // 1. 优先读取 App Group 共享容器（含 export.xml 导入数据）
+        if let shared = EarWidgetSnapshot.loadFromSharedStore(),
+           Calendar.current.isDateInToday(shared.updatedAt),
+           (shared.todayTotalMinutes > 0 || shared.weekAverageDecibels > 0) {
+            let entry = EarWidgetEntry(date: now, snapshot: shared)
+            completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
+            return
+        }
+
+        // 2. 若证书未开启 App Group 或共享数据为空，小组件直接查 Apple HealthKit 兜底
+        #if os(iOS)
+        WidgetHealthKitFallback.fetchLatestSnapshot { hkSnap in
+            let finalSnap = hkSnap ?? EarWidgetSnapshot.loadFromSharedStore() ?? .empty
+            let entry = EarWidgetEntry(date: now, snapshot: finalSnap)
+            completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
+        }
+        #else
+        let fallback = EarWidgetSnapshot.loadFromSharedStore() ?? .empty
+        completion(Timeline(entries: [EarWidgetEntry(date: now, snapshot: fallback)], policy: .after(nextUpdate)))
+        #endif
     }
 }
 
@@ -32,7 +182,6 @@ private struct ClearLiquidGlassWidgetBackdrop: View {
     var body: some View {
         ZStack {
             if #available(iOS 26.0, macOS 26.0, *) {
-                // 让系统原生液态玻璃完全透出，不铺任何不透明底色
                 Color.clear
             } else {
                 Rectangle()
@@ -40,7 +189,6 @@ private struct ClearLiquidGlassWidgetBackdrop: View {
                     .opacity(0.35)
             }
 
-            // 极轻玻璃边缘反光描边，提升通透立体感
             ContainerRelativeShape()
                 .strokeBorder(
                     LinearGradient(
@@ -211,7 +359,6 @@ struct EarPulseWidgetEntryView: View {
         let split = splitMinutes(entry.snapshot.todayTotalMinutes)
 
         return HStack(spacing: 14) {
-            // 左侧：今日时长 + 今日平均分贝 + 当前耳机
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 5) {
                     Image(systemName: "airpodspro")
@@ -251,7 +398,6 @@ struct EarPulseWidgetEntryView: View {
 
                 Spacer(minLength: 2)
 
-                // 今日平均分贝彩色透明玻璃胶囊
                 HStack(spacing: 5) {
                     Image(systemName: "waveform")
                         .font(.caption2.weight(.semibold))
@@ -272,7 +418,6 @@ struct EarPulseWidgetEntryView: View {
             }
             .frame(width: 118, alignment: .leading)
 
-            // 右侧：今日 24 小时使用频率柱状图（纯透明通透玻璃内框）
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("今日频率")

@@ -19,7 +19,9 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
-	<string>5</string>
+	<string>6</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>earuseage 小组件需要读取 Apple「健康」中的耳机音频水平数据，以展示今日耳机使用频率与平均分贝。</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>

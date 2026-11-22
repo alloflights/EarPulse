@@ -218,7 +218,7 @@ final class UsageLimitMonitor: ObservableObject {
             let remainingSec = (Double(dailyLimitMinutes) - liveTodayMinutes) * 60.0
             if remainingSec > 5 {
                 let content = UNMutableNotificationContent()
-                content.title = "earphone useage"
+                content.title = "earuseage"
                 content.body = "今日耳机佩戴已达设定限额（\(DurationFormatter.hoursMinutes(minutes: Double(dailyLimitMinutes)))）"
                 content.sound = .default
                 let trigger = UNTimeIntervalNotificationTrigger(timeInterval: remainingSec, repeats: false)
@@ -230,7 +230,7 @@ final class UsageLimitMonitor: ObservableObject {
             let remainingSec = (Double(sessionLimitMinutes) - liveSessionMinutes) * 60.0
             if remainingSec > 5 {
                 let content = UNMutableNotificationContent()
-                content.title = "earphone useage"
+                content.title = "earuseage"
                 content.body = "单次连续佩戴已达设定限额（\(DurationFormatter.hoursMinutes(minutes: Double(sessionLimitMinutes)))）"
                 content.sound = .default
                 let trigger = UNTimeIntervalNotificationTrigger(timeInterval: remainingSec, repeats: false)

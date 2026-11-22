@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>zh_CN</string>
 	<key>CFBundleDisplayName</key>
-	<string>earphone useage</string>
+	<string>earuseage</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -23,7 +23,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
-	<string>earphone useage 需要读取 Apple「健康」中的耳机音频水平数据，以统计你的真实耳机佩戴时长与各设备使用情况。</string>
+	<string>earuseage 需要读取 Apple「健康」中的耳机音频水平数据，以统计你的真实耳机佩戴时长与各设备使用情况。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

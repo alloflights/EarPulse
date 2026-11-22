@@ -342,7 +342,7 @@ struct MinimalLaunchOverlay: View {
                     .focusable(false)
                 }
 
-                Text(deviceName ?? "earphone useage")
+                Text(deviceName ?? "earuseage")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
@@ -362,7 +362,7 @@ struct MinimalLaunchOverlay: View {
                 }
                 .opacity(anim.visualVisible ? 1.0 : 0.0)
 
-                Text("earphone useage")
+                Text("earuseage")
                     .font(.caption.weight(.semibold))
                     .tracking(1.2)
                     .foregroundStyle(GlassTheme.softBlue.opacity(0.85))

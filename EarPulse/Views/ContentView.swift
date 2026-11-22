@@ -73,7 +73,7 @@ struct ContentView: View {
     // MARK: - 顶部极简栏
     private var topBar: some View {
         HStack(spacing: 10) {
-            Text("earphone useage")
+            Text("earuseage")
                 .font(.system(size: 24, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
 

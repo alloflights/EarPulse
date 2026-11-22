@@ -1,4 +1,4 @@
-# earphone useage
+# earuseage
 
 一款基于 **SwiftUI + Swift Charts + HealthKit** 的 iOS 原生耳机使用时间统计应用，采用 iOS 26 液态玻璃（Liquid Glass）视觉与中英双语界面。
 

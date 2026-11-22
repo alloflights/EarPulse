@@ -73,23 +73,35 @@ struct StatsView: View {
 
                 Spacer()
 
-                Text(lang.last7Days)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(GlassTheme.softBlue)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(GlassTheme.accentBlue.opacity(0.18), in: Capsule())
+                VStack(alignment: .trailing, spacing: 5) {
+                    Text(lang.last7Days)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(GlassTheme.softBlue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(GlassTheme.accentBlue.opacity(0.18), in: Capsule())
+
+                    if snapshot.weekAverageMinutes > 0 {
+                        let avgSplit = DurationFormatter.split(minutes: snapshot.weekAverageMinutes)
+                        Text(lang.dailyAvg(hours: avgSplit.hours, mins: avgSplit.mins))
+                            .font(.caption.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(0.72))
+                    }
+                }
             }
 
             Chart {
                 if avgHours > 0.05 {
+                    let avgSplit = DurationFormatter.split(minutes: snapshot.weekAverageMinutes)
                     RuleMark(y: .value(lang.avgLabel, avgHours))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                         .foregroundStyle(Color.white.opacity(0.45))
                         .annotation(position: .top, alignment: .trailing) {
-                            Text(lang.avgLabel)
+                            Text("\(lang.avgLabel) \(avgSplit.hours)h \(avgSplit.mins)m")
                                 .font(.caption2.weight(.medium))
-                                .foregroundStyle(.white.opacity(0.55))
+                                .monospacedDigit()
+                                .foregroundStyle(.white.opacity(0.68))
                         }
                 }
 

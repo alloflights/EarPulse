@@ -111,22 +111,21 @@ struct AppleHeadphoneIcon: View {
     }
 }
 
-// MARK: - 纯黑底 MP4 + Screen 滤色混合播放器（彻底根除 HEVC PremultipliedAlpha 紫边）
+// MARK: - 真透明通道 HEVC .mov 播放器（背景与液态玻璃卡片完全统一，无黑底块、比例自适应不溢出）
 
 enum LaunchAnimationResolver {
     static func videoURL(for category: HeadphoneCategory) -> URL? {
         guard let name = category.launchAnimationName else { return nil }
-        let blackName = "\(name)_black"
-        if let bundled = Bundle.main.url(forResource: blackName, withExtension: "mp4") {
+        if let bundled = Bundle.main.url(forResource: name, withExtension: "mov") {
             return bundled
         }
-        if let bundledSub = Bundle.main.url(forResource: blackName, withExtension: "mp4", subdirectory: "LaunchAnimations") {
+        if let bundledSub = Bundle.main.url(forResource: name, withExtension: "mov", subdirectory: "LaunchAnimations") {
             return bundledSub
         }
         #if os(macOS)
-        let localBlack = "/Users/cliqueychen/Desktop/作业/健康/EarPulse/EarPulse/Resources/LaunchAnimations/\(blackName).mp4"
-        if FileManager.default.fileExists(atPath: localBlack) {
-            return URL(fileURLWithPath: localBlack)
+        let localMov = "/Users/cliqueychen/Desktop/作业/健康/EarPulse/EarPulse/Resources/LaunchAnimations/\(name).mov"
+        if FileManager.default.fileExists(atPath: localMov) {
+            return URL(fileURLWithPath: localMov)
         }
         #endif
         return nil
@@ -176,7 +175,7 @@ final class TransparentPlayerUIView: UIView {
                 guard layer.isReadyForDisplay else { return }
                 DispatchQueue.main.async {
                     CATransaction.begin()
-                    CATransaction.setAnimationDuration(0.22)
+                    CATransaction.setAnimationDuration(0.20)
                     layer.opacity = 1.0
                     CATransaction.commit()
                 }
@@ -225,8 +224,6 @@ final class TransparentPlayerNSView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
         layer?.masksToBounds = true
-        // macOS 原生 CoreAnimation Screen 滤色混合，让纯黑底完全透明且零紫边
-        layer?.compositingFilter = "screenBlendMode"
         playerLayer.opacity = 0.0
         playerLayer.videoGravity = .resizeAspect
         playerLayer.backgroundColor = NSColor.clear.cgColor
@@ -269,7 +266,7 @@ final class TransparentPlayerNSView: NSView {
             guard layer.isReadyForDisplay else { return }
             DispatchQueue.main.async {
                 CATransaction.begin()
-                CATransaction.setAnimationDuration(0.22)
+                CATransaction.setAnimationDuration(0.20)
                 self?.playerLayer.opacity = 1.0
                 CATransaction.commit()
             }
@@ -307,39 +304,7 @@ struct TransparentAlphaVideoView: NSViewRepresentable {
 }
 #endif
 
-/// 四边柔羽化遮罩
-private struct SoftVideoEdgeMask: View {
-    var body: some View {
-        Rectangle()
-            .fill(.white)
-            .mask(
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0.0),
-                        .init(color: .white, location: 0.07),
-                        .init(color: .white, location: 0.93),
-                        .init(color: .clear, location: 1.0)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .mask(
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0.0),
-                        .init(color: .white, location: 0.07),
-                        .init(color: .white, location: 0.93),
-                        .init(color: .clear, location: 1.0)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-    }
-}
-
-/// 仿 iOS AirPods 开盖底部弹出液态玻璃弹窗（纯黑底 MP4 滤色混合，彻底零紫边）
+/// 仿 iOS AirPods 开盖底部弹出液态玻璃弹窗（真透明通道 .mov，与卡片背景融为一体，比例严格不溢出）
 struct MinimalLaunchOverlay: View {
     let deviceName: String?
     let category: HeadphoneCategory
@@ -354,7 +319,7 @@ struct MinimalLaunchOverlay: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Color.black.opacity(anim.dismissed ? 0.0 : 0.62)
+            Color.black.opacity(anim.dismissed ? 0.0 : 0.56)
                 .ignoresSafeArea()
                 .onTapGesture {
                     dismissNow()
@@ -386,14 +351,13 @@ struct MinimalLaunchOverlay: View {
                 Group {
                     if let url = videoURL, category.launchAnimationName != nil || deviceName == nil {
                         TransparentAlphaVideoView(url: url)
-                            .scaleEffect(1.04)
-                            .blendMode(.screen)
-                            .mask(SoftVideoEdgeMask())
                             .frame(maxWidth: .infinity)
-                            .frame(height: 190)
+                            .frame(height: 152)
+                            .padding(.horizontal, 14)
+                            .clipped()
                     } else {
-                        AppleHeadphoneIcon(category: category, size: 146, animated: true)
-                            .frame(height: 190)
+                        AppleHeadphoneIcon(category: category, size: 132, animated: true)
+                            .frame(height: 152)
                     }
                 }
                 .opacity(anim.visualVisible ? 1.0 : 0.0)
@@ -405,20 +369,7 @@ struct MinimalLaunchOverlay: View {
                     .padding(.bottom, 4)
             }
             .frame(maxWidth: .infinity)
-            .padding(22)
-            .background {
-                RoundedRectangle(cornerRadius: 36, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 36, style: .continuous)
-                            .fill(Color(red: 0.04, green: 0.06, blue: 0.10).opacity(0.68))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 36, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.8)
-                    )
-            }
-            .shadow(color: Color.black.opacity(0.60), radius: 28, x: 0, y: 12)
+            .liquidGlassCard(cornerRadius: 36, padding: 22)
             .padding(.horizontal, 16)
             .padding(.bottom, 22)
             .offset(y: anim.cardUp && !anim.dismissed ? 0 : 440)
@@ -428,7 +379,7 @@ struct MinimalLaunchOverlay: View {
             withAnimation(.spring(response: 0.50, dampingFraction: 0.84)) {
                 anim.cardUp = true
             }
-            withAnimation(.easeOut(duration: 0.30).delay(0.12)) {
+            withAnimation(.easeOut(duration: 0.28).delay(0.10)) {
                 anim.visualVisible = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {

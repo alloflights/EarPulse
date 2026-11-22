@@ -243,6 +243,10 @@ final class HealthDataStore: ObservableObject {
         let today = calendar.startOfDay(for: Date())
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
         let activeDay = calendar.startOfDay(for: selectedDate ?? yesterday)
+        let eightDaysAgo = calendar.date(byAdding: .day, value: -8, to: today) ?? today
+
+        // samples 按 startDate 降序排列，仅截取近 8 天窗口避免全量历史扫描导致点击卡顿
+        let recentSamples = samples.filter { $0.endDate >= eightDaysAgo }
 
         let dayFmt = DateFormatter()
         dayFmt.locale = Locale(identifier: isEnglish ? "en_US" : "zh_CN")
@@ -251,7 +255,7 @@ final class HealthDataStore: ObservableObject {
         // 过去 7 天（含今天，默认高亮昨天）
         let weekBars: [DailyUsageBar] = (0..<7).reversed().map { offset in
             let day = calendar.date(byAdding: .day, value: -offset, to: today) ?? today
-            let daySamples = samples.filter { calendar.isDate($0.startDate, inSameDayAs: day) }
+            let daySamples = recentSamples.filter { calendar.isDate($0.startDate, inSameDayAs: day) }
             return DailyUsageBar(
                 id: day,
                 date: day,
@@ -268,7 +272,7 @@ final class HealthDataStore: ObservableObject {
 
         // 选中日 24 小时逐小时按合并后耳机名拆解
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: activeDay) ?? activeDay
-        let daySamples = samples.filter { $0.endDate > activeDay && $0.startDate < dayEnd }
+        let daySamples = recentSamples.filter { $0.endDate > activeDay && $0.startDate < dayEnd }
         let selectedDayTotal = TimeIntervalMerger.mergedMinutes(for: daySamples)
 
         // 按设备累计时长排序分配稳定色标

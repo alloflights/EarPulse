@@ -5,11 +5,10 @@ import SwiftUI
 @MainActor
 private final class ScreenTimeStatsState: ObservableObject {
     @Published var selectedDate: Date? = nil
-    @Published var tappedWeekday: String? = nil
 }
 
 /// 仿 Apple「屏幕时间」布局的统计页：
-/// 1. 过去一周每日柱状图 + 虚线「平均」线（点击任意一天可切换查看该日 24 小时明细）
+/// 1. 过去一周每日柱状图 + 虚线「平均」线（单击任意柱条即时切换，零长按延迟）
 /// 2. 昨天 / 选中日 24 小时逐小时分耳机堆叠柱状图 + 下方各耳机色标图例与时长
 struct StatsView: View {
     @EnvironmentObject private var dataStore: HealthDataStore
@@ -35,17 +34,9 @@ struct StatsView: View {
             .padding(.top, 12)
             .padding(.bottom, 114)
         }
-        .onChange(of: uiState.tappedWeekday) { _, newLabel in
-            guard let newLabel,
-                  let matched = snapshot.weekBars.first(where: { $0.weekdayLabel == newLabel }) else { return }
-            Haptics.selection()
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
-                uiState.selectedDate = matched.date
-            }
-        }
     }
 
-    // MARK: - 1. 过去一周 + 平均虚线卡片
+    // MARK: - 1. 过去一周 + 平均虚线卡片（轻点即切，即时变色）
     private func weeklyOverviewCard(_ snapshot: ScreenTimeStatsSnapshot) -> some View {
         let selectedSplit = DurationFormatter.split(minutes: snapshot.selectedDayTotalMinutes)
         let avgHours = snapshot.weekAverageMinutes / 60.0
@@ -120,7 +111,30 @@ struct StatsView: View {
                     .cornerRadius(7)
                 }
             }
-            .chartXSelection(value: $uiState.tappedWeekday)
+            .animation(.easeOut(duration: 0.16), value: uiState.selectedDate)
+            .chartOverlay { proxy in
+                GeometryReader { geo in
+                    Rectangle()
+                        .fill(.clear)
+                        .contentShape(Rectangle())
+                        .onTapGesture { location in
+                            let plotFrame = proxy.plotFrame.map { geo[$0] } ?? geo.frame(in: .local)
+                            let relX = location.x - plotFrame.origin.x
+                            guard relX >= 0, relX <= plotFrame.width else { return }
+
+                            if let label: String = proxy.value(atX: relX),
+                               let matched = snapshot.weekBars.first(where: { $0.weekdayLabel == label }) {
+                                selectDay(matched.date)
+                            } else if !snapshot.weekBars.isEmpty {
+                                let idx = min(
+                                    snapshot.weekBars.count - 1,
+                                    max(0, Int((relX / max(1, plotFrame.width)) * CGFloat(snapshot.weekBars.count)))
+                                )
+                                selectDay(snapshot.weekBars[idx].date)
+                            }
+                        }
+                }
+            }
             .chartYAxis {
                 AxisMarks(position: .trailing) { val in
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [3, 3]))
@@ -145,7 +159,15 @@ struct StatsView: View {
         .liquidGlassCard(cornerRadius: 28, padding: 22)
     }
 
-    // MARK: - 2. 24 小时逐小时分耳机堆叠柱状图 + 下方分耳机图例（保留空数据防崩溃保护）
+    private func selectDay(_ date: Date) {
+        guard uiState.selectedDate == nil || !Calendar.current.isDate(uiState.selectedDate!, inSameDayAs: date) else { return }
+        Haptics.selection()
+        withAnimation(.easeOut(duration: 0.16)) {
+            uiState.selectedDate = date
+        }
+    }
+
+    // MARK: - 2. 24 小时逐小时分耳机堆叠柱状图 + 下方分耳机图例
     private func hourlyDetailCard(_ snapshot: ScreenTimeStatsSnapshot) -> some View {
         let colorDomain = snapshot.dayBreakdowns.map(\.deviceName)
         let colorRange = snapshot.dayBreakdowns.map { GlassTheme.deviceColor(at: $0.colorIndex) }

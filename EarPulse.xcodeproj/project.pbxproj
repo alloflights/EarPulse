@@ -19,9 +19,9 @@
 		AA0100080000000000000008 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0200080000000000000008 /* StatsView.swift */; };
 		AA0100090000000000000009 /* DevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0200090000000000000009 /* DevicesView.swift */; };
 		AA0100120000000000000012 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0200120000000000000012 /* Assets.xcassets */; };
-		AA0100180000000000000018 /* airpods_pro_open_black.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = AA0200180000000000000018 /* airpods_pro_open_black.mp4 */; };
-		AA0100190000000000000019 /* airpods_max_open_black.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = AA0200190000000000000019 /* airpods_max_open_black.mp4 */; };
-		AA0100200000000000000020 /* airpods_open_black.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = AA0200200000000000000020 /* airpods_open_black.mp4 */; };
+		AA0100180000000000000018 /* airpods_pro_open.mov in Resources */ = {isa = PBXBuildFile; fileRef = AA0200180000000000000018 /* airpods_pro_open.mov */; };
+		AA0100190000000000000019 /* airpods_max_open.mov in Resources */ = {isa = PBXBuildFile; fileRef = AA0200190000000000000019 /* airpods_max_open.mov */; };
+		AA0100200000000000000020 /* airpods_open.mov in Resources */ = {isa = PBXBuildFile; fileRef = AA0200200000000000000020 /* airpods_open.mov */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,9 +40,9 @@
 		AA0200120000000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA0200130000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA0200140000000000000014 /* EarPulse.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EarPulse.entitlements; sourceTree = "<group>"; };
-		AA0200180000000000000018 /* airpods_pro_open_black.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = airpods_pro_open_black.mp4; sourceTree = "<group>"; };
-		AA0200190000000000000019 /* airpods_max_open_black.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = airpods_max_open_black.mp4; sourceTree = "<group>"; };
-		AA0200200000000000000020 /* airpods_open_black.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = airpods_open_black.mp4; sourceTree = "<group>"; };
+		AA0200180000000000000018 /* airpods_pro_open.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = airpods_pro_open.mov; sourceTree = "<group>"; };
+		AA0200190000000000000019 /* airpods_max_open.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = airpods_max_open.mov; sourceTree = "<group>"; };
+		AA0200200000000000000020 /* airpods_open.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = airpods_open.mov; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,9 +137,9 @@
 		AA0400090000000000000009 /* LaunchAnimations */ = {
 			isa = PBXGroup;
 			children = (
-				AA0200180000000000000018 /* airpods_pro_open_black.mp4 */,
-				AA0200190000000000000019 /* airpods_max_open_black.mp4 */,
-				AA0200200000000000000020 /* airpods_open_black.mp4 */,
+				AA0200180000000000000018 /* airpods_pro_open.mov */,
+				AA0200190000000000000019 /* airpods_max_open.mov */,
+				AA0200200000000000000020 /* airpods_open.mov */,
 			);
 			path = LaunchAnimations;
 			sourceTree = "<group>";
@@ -204,9 +204,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA0100120000000000000012 /* Assets.xcassets in Resources */,
-				AA0100180000000000000018 /* airpods_pro_open_black.mp4 in Resources */,
-				AA0100190000000000000019 /* airpods_max_open_black.mp4 in Resources */,
-				AA0100200000000000000020 /* airpods_open_black.mp4 in Resources */,
+				AA0100180000000000000018 /* airpods_pro_open.mov in Resources */,
+				AA0100190000000000000019 /* airpods_max_open.mov in Resources */,
+				AA0100200000000000000020 /* airpods_open.mov in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

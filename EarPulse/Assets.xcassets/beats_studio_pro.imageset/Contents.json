@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "beats_studio_pro.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

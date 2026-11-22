@@ -14,6 +14,7 @@ struct EarPulseApp: App {
     @StateObject private var dataStore = HealthDataStore()
     @StateObject private var audioMonitor = AudioRouteMonitor()
     @StateObject private var lang = LanguageStore()
+    @StateObject private var limitMonitor = UsageLimitMonitor()
     @StateObject private var launchState = LaunchState()
 
     var body: some Scene {
@@ -23,8 +24,10 @@ struct EarPulseApp: App {
                     .environmentObject(dataStore)
                     .environmentObject(audioMonitor)
                     .environmentObject(lang)
+                    .environmentObject(limitMonitor)
                     .preferredColorScheme(.dark)
                     .task {
+                        limitMonitor.bind(audioMonitor: audioMonitor, dataStore: dataStore)
                         await dataStore.bootstrapOnLaunch()
                     }
 

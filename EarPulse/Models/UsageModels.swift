@@ -1,47 +1,65 @@
 import Foundation
 import SwiftUI
 
-/// 精简设备分类：Apple 官方 3 款 + 其他品牌仅区分「头戴式 / 入耳式」
+/// 耳机形态与主流真实产品图资源映射
 enum HeadphoneCategory: String, CaseIterable, Identifiable, Codable, Sendable {
     case airPodsPro = "AirPods Pro"
     case airPodsMax = "AirPods Max"
     case airPods = "AirPods"
+    case beoplayEX = "Beoplay EX"
+    case beoplayH95 = "Beoplay H95"
+    case sonyOverEar = "Sony WH"
+    case sonyInEar = "Sony WF"
+    case boseOverEar = "Bose QC Ultra"
+    case boseInEar = "Bose QC Earbuds"
+    case sennheiserOverEar = "Sennheiser Momentum"
+    case beatsOverEar = "Beats Studio Pro"
+    case beatsInEar = "Beats Fit Pro"
+    case marshallOverEar = "Marshall Major"
     case overEar = "头戴式"
     case inEar = "入耳式"
 
     var id: String { rawValue }
 
-    var isAppleOfficial: Bool {
-        switch self {
-        case .airPodsPro, .airPodsMax, .airPods: return true
-        case .overEar, .inEar: return false
-        }
-    }
-
-    /// 苹果系统蓝牙原生 SF Symbol（纯透明无白边）
     var sfSymbol: String {
         switch self {
         case .airPodsPro: return "airpodspro"
         case .airPodsMax: return "airpodsmax"
         case .airPods: return "airpods"
-        case .overEar: return "headphones"
-        case .inEar: return "earbuds"
+        case .beoplayEX, .sonyInEar, .boseInEar, .beatsInEar, .inEar: return "earbuds"
+        case .beoplayH95, .sonyOverEar, .boseOverEar, .sennheiserOverEar, .beatsOverEar, .marshallOverEar, .overEar:
+            return "headphones"
         }
     }
 
-    /// 本地 Assets.xcassets 可选透明 PNG 产品图资源名
+    /// Assets.xcassets 中对应的真实产品图资源名
     var localAssetName: String? {
         switch self {
         case .airPodsPro: return "apple_airpods_pro"
         case .airPodsMax: return "apple_airpods_max"
         case .airPods: return "apple_airpods"
+        case .beoplayEX: return "beoplay_ex"
+        case .beoplayH95: return "beoplay_h95"
+        case .sonyOverEar: return "sony_xm5"
+        case .sonyInEar: return "sony_wf_xm5"
+        case .boseOverEar: return "bose_qc_ultra"
+        case .boseInEar: return "bose_qc_ultra_earbuds"
+        case .sennheiserOverEar: return "sennheiser_m4"
+        case .beatsOverEar: return "beats_studio_pro"
+        case .beatsInEar: return "beats_fit_pro"
+        case .marshallOverEar: return "marshall_major"
         case .overEar, .inEar: return nil
         }
     }
 
-    /// 移除带白底的 JPEG 直链，确保在纯黑液态玻璃底上绝对无白边
-    var officialAppleImageURL: URL? {
-        nil
+    /// Resources/LaunchAnimations 中对应的苹果原版透明开盖动画文件名（不含扩展名）
+    var launchAnimationName: String? {
+        switch self {
+        case .airPodsPro: return "airpods_pro_open"
+        case .airPodsMax: return "airpods_max_open"
+        case .airPods: return "airpods_open"
+        default: return nil
+        }
     }
 
     static func infer(from deviceName: String, isWired: Bool = false) -> HeadphoneCategory {
@@ -50,25 +68,51 @@ enum HeadphoneCategory: String, CaseIterable, Identifiable, Codable, Sendable {
         if lower.contains("airpod") && lower.contains("pro") { return .airPodsPro }
         if lower.contains("airpod") { return .airPods }
 
+        if lower.contains("beoplay") || lower.contains("b&o") || lower.contains("bang") {
+            if lower.contains("h95") || lower.contains("h100") || lower.contains("hx") || lower.contains("h9") || lower.contains("portal") {
+                return .beoplayH95
+            }
+            return .beoplayEX
+        }
+
+        if lower.contains("wf-1000") || lower.contains("wf1000") || (lower.contains("sony") && (lower.contains("bud") || lower.contains("wf"))) {
+            return .sonyInEar
+        }
+        if lower.contains("sony") || lower.contains("wh-1000") || lower.contains("xm5") || lower.contains("xm4") {
+            return .sonyOverEar
+        }
+
+        if lower.contains("bose") || lower.contains("quietcomfort") || lower.contains("qc ultra") || lower.contains("qc45") {
+            if lower.contains("earbud") || lower.contains("bud") || lower.contains("open") {
+                return .boseInEar
+            }
+            return .boseOverEar
+        }
+
+        if lower.contains("sennheiser") || lower.contains("momentum") {
+            return .sennheiserOverEar
+        }
+
+        if lower.contains("beats") {
+            if lower.contains("fit") || lower.contains("bud") || lower.contains("powerbeats") {
+                return .beatsInEar
+            }
+            return .beatsOverEar
+        }
+
+        if lower.contains("marshall") || lower.contains("major") || lower.contains("monitor") {
+            return .marshallOverEar
+        }
+
         if lower.contains("max") || lower.contains("headphone") || lower.contains("studio") ||
-            lower.contains("wh-") || lower.contains("xm") || lower.contains("qc") ||
-            lower.contains("bose") || lower.contains("sennheiser") || lower.contains("solo") ||
-            lower.contains("头戴") {
+            lower.contains("solo") || lower.contains("头戴") {
             return .overEar
         }
         return .inEar
     }
 }
 
-enum StatsTimeRange: String, CaseIterable, Identifiable, Sendable {
-    case week = "周"
-    case month = "月"
-    case year = "年"
-    case all = "总共"
-
-    var id: String { rawValue }
-}
-
+/// 真实耳机分贝样本
 struct AudioExposureSample: Identifiable, Hashable, Codable, Sendable {
     let id: UUID
     let startDate: Date
@@ -82,6 +126,7 @@ struct AudioExposureSample: Identifiable, Hashable, Codable, Sendable {
     }
 }
 
+/// 每款耳机的真实使用时间汇总
 struct HeadphoneUsageSummary: Identifiable, Hashable, Sendable {
     let id: String
     let deviceName: String
@@ -91,12 +136,49 @@ struct HeadphoneUsageSummary: Identifiable, Hashable, Sendable {
     let averageDecibels: Double
     let activeDays: Int
     let lastUsedDate: Date
+    let isPrimary: Bool
 
     var formattedDuration: String {
         DurationFormatter.hoursMinutes(minutes: totalMinutes)
     }
 }
 
+/// 屏幕时间风格：过去一周每天柱状点
+struct DailyUsageBar: Identifiable, Sendable {
+    let id: Date
+    let date: Date
+    let weekdayLabel: String
+    let totalMinutes: Double
+    let isYesterday: Bool
+}
+
+/// 屏幕时间风格：单日 24 小时逐小时按耳机堆叠柱状点
+struct HourlyDeviceUsageBar: Identifiable, Sendable {
+    let id: String
+    let hour: Int
+    let deviceName: String
+    let minutes: Double
+}
+
+/// 单日耳机图例汇总
+struct DayDeviceBreakdown: Identifiable, Sendable {
+    let id: String
+    let deviceName: String
+    let minutes: Double
+    let colorIndex: Int
+}
+
+/// 屏幕时间风格统计快照（过去一周 + 选中日 24 小时逐小时）
+struct ScreenTimeStatsSnapshot: Sendable {
+    let weekBars: [DailyUsageBar]
+    let weekAverageMinutes: Double
+    let selectedDate: Date
+    let selectedDayTotalMinutes: Double
+    let hourlyBars: [HourlyDeviceUsageBar]
+    let dayBreakdowns: [DayDeviceBreakdown]
+}
+
+/// 个人纪录 4 项
 struct PersonalUsageRecords: Sendable {
     let longestDayMinutes: Double
     let longestDayDate: Date?
@@ -120,6 +202,7 @@ struct PersonalUsageRecords: Sendable {
     )
 }
 
+/// 总体 / 单款使用时间摘要
 struct UsageOverviewSummary: Sendable {
     let rawSampleCount: Int
     let firstDate: Date?
@@ -142,20 +225,6 @@ struct UsageOverviewSummary: Sendable {
         dailyAverageMinutes: 0,
         weightedAverageDecibels: 0
     )
-}
-
-struct PeriodUsageSnapshot: Sendable {
-    let range: StatsTimeRange
-    let title: String
-    let totalMinutes: Double
-    let deltaMinutes: Double?
-    let chartPoints: [UsageChartPoint]
-}
-
-struct UsageChartPoint: Identifiable, Sendable {
-    let id = UUID()
-    let label: String
-    let minutes: Double
 }
 
 enum DurationFormatter {

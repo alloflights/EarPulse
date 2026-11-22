@@ -10,7 +10,9 @@ swiftc \
   -framework SwiftUI \
   -framework Charts \
   -framework AppKit \
+  -framework AVFoundation \
   -framework UniformTypeIdentifiers \
+  -framework UserNotifications \
   "$SCRIPT_DIR"/EarPulse/*.swift \
   "$SCRIPT_DIR"/EarPulse/*/*.swift \
   -o "$OUT_BIN"

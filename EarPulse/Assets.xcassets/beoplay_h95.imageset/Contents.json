@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "beoplay_h95.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

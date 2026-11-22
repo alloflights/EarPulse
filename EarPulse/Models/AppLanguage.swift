@@ -7,16 +7,9 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     case en = "en"
 
     var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .zh: return "中文"
-        case .en: return "English"
-        }
-    }
 }
 
-/// 轻量中英双语状态管理（默认跟随系统语言，支持 App 内一键切换并持久化）
+/// 轻量中英双语管理
 @MainActor
 final class LanguageStore: ObservableObject {
     @Published var language: AppLanguage {
@@ -43,16 +36,17 @@ final class LanguageStore: ObservableObject {
         language = (language == .zh) ? .en : .zh
     }
 
-    // MARK: - 极简双语文案（无任何说明性废话）
-
     var statsTab: String { isEnglish ? "Stats" : "统计" }
     var devicesTab: String { isEnglish ? "Devices" : "设备" }
 
-    var allScope: String { isEnglish ? "All" : "全部" }
-    var totalUsage: String { isEnglish ? "Total" : "累计佩戴" }
     var appleHealth: String { isEnglish ? "Apple Health" : "Apple 健康" }
     var importXML: String { isEnglish ? "Import export.xml" : "导入 export.xml" }
     var syncHealth: String { isEnglish ? "Sync Health" : "同步健康" }
+
+    var last7Days: String { isEnglish ? "Last 7 Days" : "过去一周" }
+    var yesterday: String { isEnglish ? "Yesterday" : "昨天" }
+    var avgLabel: String { isEnglish ? "Avg" : "平均" }
+    var hourlyTitle: String { isEnglish ? "Hourly" : "逐小时使用" }
 
     var bestDay: String { isEnglish ? "Best Day" : "单日最长" }
     var longestSession: String { isEnglish ? "Longest" : "单次最长" }
@@ -61,22 +55,32 @@ final class LanguageStore: ObservableObject {
 
     var connected: String { isEnglish ? "Connected" : "已连接" }
     var notConnected: String { isEnglish ? "Disconnected" : "未连接" }
-    var byDevice: String { isEnglish ? "Devices" : "每款耳机" }
+    var primaryDevice: String { isEnglish ? "Primary" : "主力耳机" }
+    var manageDevices: String { isEnglish ? "Manage" : "排序与合并" }
+    var mergeAction: String { isEnglish ? "Merge" : "合并数据" }
+    var unmergeAll: String { isEnglish ? "Reset" : "恢复默认" }
+    var doneLabel: String { isEnglish ? "Done" : "完成" }
 
-    func rangeTitle(_ range: StatsTimeRange) -> String {
-        switch range {
-        case .week: return isEnglish ? "W" : "周"
-        case .month: return isEnglish ? "M" : "月"
-        case .year: return isEnglish ? "Y" : "年"
-        case .all: return isEnglish ? "All" : "总共"
-        }
-    }
+    var limitsTitle: String { isEnglish ? "Limits" : "限额提醒" }
+    var dailyLimit: String { isEnglish ? "Daily" : "每日限额" }
+    var sessionLimit: String { isEnglish ? "Session" : "单次限额" }
+    var limitReached: String { isEnglish ? "Reached" : "已达限额" }
 
     func categoryTitle(_ category: HeadphoneCategory) -> String {
         switch category {
         case .airPodsPro: return "AirPods Pro"
         case .airPodsMax: return "AirPods Max"
         case .airPods: return "AirPods"
+        case .beoplayEX: return "Beoplay EX"
+        case .beoplayH95: return "Beoplay H95"
+        case .sonyOverEar: return "Sony WH"
+        case .sonyInEar: return "Sony WF"
+        case .boseOverEar: return "Bose QC Ultra"
+        case .boseInEar: return "Bose QC Earbuds"
+        case .sennheiserOverEar: return "Sennheiser Momentum"
+        case .beatsOverEar: return "Beats Studio Pro"
+        case .beatsInEar: return "Beats Fit Pro"
+        case .marshallOverEar: return "Marshall Major"
         case .overEar: return isEnglish ? "Over-Ear" : "头戴式"
         case .inEar: return isEnglish ? "In-Ear" : "入耳式"
         }

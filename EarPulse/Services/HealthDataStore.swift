@@ -4,11 +4,16 @@ import Foundation
 import HealthKit
 #endif
 
-/// 100% 真实数据存储与同步引擎：支持 iOS HealthKit 实时读取与跨平台 export.xml 一次导入永久缓存
+/// 100% 真实数据引擎：支持 HealthKit 静默同步、export.xml 永久缓存、设备自定义排序、多设备数据合并与屏幕时间风逐小时分析
 @MainActor
 final class HealthDataStore: ObservableObject {
     @Published var samples: [AudioExposureSample] = []
     @Published var deviceSummaries: [HeadphoneUsageSummary] = []
+
+    /// 用户自定义排序（按设备名）
+    @Published var customDeviceOrder: [String] = []
+    /// 用户设备合并映射（源设备名 -> 目标设备名）
+    @Published var deviceMergeMap: [String: String] = [:]
 
     @Published var isLoading: Bool = false
     @Published var dataSourceLabel: String = ""
@@ -20,9 +25,12 @@ final class HealthDataStore: ObservableObject {
     private let defaults = UserDefaults.standard
     private let hkConnectedKey = "earphone_useage_hk_connected"
     private let sourceLabelKey = "earphone_useage_source_label"
+    private let customOrderKey = "earphone_useage_custom_order"
+    private let mergeMapKey = "earphone_useage_merge_map"
 
     private var cacheFileURL: URL {
-        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
         return dir.appendingPathComponent("earphone_useage_real_cache.json")
     }
 
@@ -30,11 +38,13 @@ final class HealthDataStore: ObservableObject {
         !samples.isEmpty
     }
 
-    var mostUsedDevice: HeadphoneUsageSummary? {
-        deviceSummaries.first
+    var primaryDevice: HeadphoneUsageSummary? {
+        deviceSummaries.first(where: \.isPrimary) ?? deviceSummaries.first
     }
 
     init() {
+        customDeviceOrder = defaults.stringArray(forKey: customOrderKey) ?? []
+        deviceMergeMap = (defaults.dictionary(forKey: mergeMapKey) as? [String: String]) ?? [:]
         loadCachedSamples()
         if let savedLabel = defaults.string(forKey: sourceLabelKey) {
             dataSourceLabel = savedLabel
@@ -53,16 +63,64 @@ final class HealthDataStore: ObservableObject {
         #endif
     }
 
+    // MARK: - 设备排序与多设备数据合并
+
+    /// 解析合并后的规范设备名
+    func canonicalName(for rawName: String) -> String {
+        var current = rawName
+        var visited = Set<String>()
+        while let mapped = deviceMergeMap[current], !visited.contains(mapped) {
+            visited.insert(current)
+            current = mapped
+        }
+        return current
+    }
+
+    /// 将多个源耳机合并到目标耳机
+    func mergeDevice(_ sourceName: String, into targetName: String) {
+        guard sourceName != targetName else { return }
+        let resolvedTarget = canonicalName(for: targetName)
+        deviceMergeMap[sourceName] = resolvedTarget
+        // 同步更新已指向 sourceName 的映射，防止链式环
+        for (k, v) in deviceMergeMap where v == sourceName {
+            deviceMergeMap[k] = resolvedTarget
+        }
+        defaults.set(deviceMergeMap, forKey: mergeMapKey)
+        customDeviceOrder.removeAll { $0 == sourceName }
+        defaults.set(customDeviceOrder, forKey: customOrderKey)
+        rebuildSummaries()
+    }
+
+    /// 移动耳机排列顺序
+    func moveDevice(fromIndex: Int, toIndex: Int) {
+        var names = deviceSummaries.map(\.deviceName)
+        guard names.indices.contains(fromIndex), names.indices.contains(toIndex), fromIndex != toIndex else { return }
+        let item = names.remove(at: fromIndex)
+        names.insert(item, at: toIndex)
+        customDeviceOrder = names
+        defaults.set(customDeviceOrder, forKey: customOrderKey)
+        rebuildSummaries()
+    }
+
+    /// 恢复默认排序并取消所有合并
+    func resetCustomizations() {
+        deviceMergeMap = [:]
+        customDeviceOrder = []
+        defaults.removeObject(forKey: mergeMapKey)
+        defaults.removeObject(forKey: customOrderKey)
+        rebuildSummaries()
+    }
+
+    // MARK: - HealthKit & export.xml
+
     func connectAppleHealth() async {
         errorMessage = nil
         #if os(iOS)
         guard HKHealthStore.isHealthDataAvailable() else {
-            errorMessage = "HealthKit unavailable — import export.xml"
+            errorMessage = "HealthKit unavailable"
             return
         }
-        guard let exposureType = HKQuantityType.quantityType(forIdentifier: .headphoneAudioExposure) else {
-            return
-        }
+        guard let exposureType = HKQuantityType.quantityType(forIdentifier: .headphoneAudioExposure) else { return }
 
         isLoading = true
         defer { isLoading = false }
@@ -73,18 +131,17 @@ final class HealthDataStore: ObservableObject {
             await fetchFromHealthKit(silent: false)
         } catch {
             errorMessage = error.localizedDescription
+            Haptics.error()
         }
         #else
-        errorMessage = "Mac 预览模式请点下方导入 export.xml"
+        errorMessage = "iOS HealthKit only"
         #endif
     }
 
     #if os(iOS)
     func fetchFromHealthKit(silent: Bool) async {
         guard HKHealthStore.isHealthDataAvailable(),
-              let exposureType = HKQuantityType.quantityType(forIdentifier: .headphoneAudioExposure) else {
-            return
-        }
+              let exposureType = HKQuantityType.quantityType(forIdentifier: .headphoneAudioExposure) else { return }
 
         if !silent { isLoading = true }
         defer { if !silent { isLoading = false } }
@@ -113,12 +170,15 @@ final class HealthDataStore: ObservableObject {
             if !mapped.isEmpty {
                 applyAndPersist(mapped, source: "Apple Health")
                 errorMessage = nil
+                if !silent { Haptics.success() }
             } else if !silent && samples.isEmpty {
-                errorMessage = "No headphone records found"
+                errorMessage = "No records found"
+                Haptics.error()
             }
         } catch {
             if !silent {
                 errorMessage = error.localizedDescription
+                Haptics.error()
             }
         }
     }
@@ -163,66 +223,121 @@ final class HealthDataStore: ObservableObject {
             }.value
 
             if parsed.isEmpty {
-                errorMessage = "No headphone exposure records in XML"
+                errorMessage = "No headphone records in XML"
+                Haptics.error()
             } else {
                 applyAndPersist(parsed, source: "export.xml")
                 errorMessage = nil
+                Haptics.success()
             }
         } catch {
             errorMessage = error.localizedDescription
+            Haptics.error()
         }
     }
 
-    #if os(macOS)
-    /// 仅限 Mac 本机预览使用的内存测试数据（通过 #if os(macOS) 隔离，绝不会编进 iOS .ipa 包）
-    func loadMacPreviewOnlyData() {
+    // MARK: - 屏幕时间风格统计（过去一周 + 昨天/指定日 24 小时逐小时分耳机）
+
+    func screenTimeSnapshot(selectedDate: Date?, isEnglish: Bool) -> ScreenTimeStatsSnapshot {
         let calendar = Calendar.current
-        let now = Date()
-        let todayStart = calendar.startOfDay(for: now)
-        var list: [AudioExposureSample] = []
+        let today = calendar.startOfDay(for: Date())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+        let activeDay = calendar.startOfDay(for: selectedDate ?? yesterday)
 
-        let devices: [(name: String, category: HeadphoneCategory, baseDb: Double)] = [
-            ("CliQueY's AirPods Pro", .airPodsPro, 63.0),
-            ("AirPods Max", .airPodsMax, 60.5),
-            ("Sony WH-1000XM5", .overEar, 66.0),
-            ("In-Ear Monitor", .inEar, 71.0)
-        ]
+        let dayFmt = DateFormatter()
+        dayFmt.locale = Locale(identifier: isEnglish ? "en_US" : "zh_CN")
+        dayFmt.dateFormat = isEnglish ? "EEE" : "E"
 
-        for dayOffset in 0..<120 {
-            if dayOffset == 38 || dayOffset == 84 { continue }
-            guard let day = calendar.date(byAdding: .day, value: -dayOffset, to: todayStart) else { continue }
+        // 过去 7 天（含今天，默认高亮昨天）
+        let weekBars: [DailyUsageBar] = (0..<7).reversed().map { offset in
+            let day = calendar.date(byAdding: .day, value: -offset, to: today) ?? today
+            let daySamples = samples.filter { calendar.isDate($0.startDate, inSameDayAs: day) }
+            return DailyUsageBar(
+                id: day,
+                date: day,
+                weekdayLabel: dayFmt.string(from: day),
+                totalMinutes: TimeIntervalMerger.mergedMinutes(for: daySamples),
+                isYesterday: calendar.isDate(day, inSameDayAs: yesterday)
+            )
+        }
 
-            // 夜间
-            if let s1 = calendar.date(byAdding: .minute, value: 40, to: day), s1 < now {
-                let dur: Double = (dayOffset == 19) ? 265 : Double(75 + (dayOffset * 13) % 65)
-                let e1 = min(now, s1.addingTimeInterval(dur * 60))
-                if e1 > s1 {
-                    list.append(AudioExposureSample(id: UUID(), startDate: s1, endDate: e1, decibels: 61.5, deviceName: devices[0].name, category: devices[0].category))
+        let nonZeroDays = weekBars.filter { $0.totalMinutes > 0 }
+        let weekAvg = nonZeroDays.isEmpty
+            ? 0
+            : nonZeroDays.reduce(0.0) { $0 + $1.totalMinutes } / Double(nonZeroDays.count)
+
+        // 选中日 24 小时逐小时按合并后耳机名拆解
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: activeDay) ?? activeDay
+        let daySamples = samples.filter { $0.endDate > activeDay && $0.startDate < dayEnd }
+        let selectedDayTotal = TimeIntervalMerger.mergedMinutes(for: daySamples)
+
+        // 按设备累计时长排序分配稳定色标
+        var deviceDayMinutes: [String: Double] = [:]
+        var hourlyMap: [Int: [String: Double]] = [:]
+
+        for sample in daySamples {
+            let devName = canonicalName(for: sample.deviceName)
+            let clampedStart = max(sample.startDate, activeDay)
+            let clampedEnd = min(sample.endDate, dayEnd)
+            guard clampedEnd > clampedStart else { continue }
+
+            // 将跨小时样本切分到每个具体小时槽 (0...23)，防夏令时/边界死循环
+            var cursor = clampedStart
+            while cursor < clampedEnd {
+                let hour = calendar.component(.hour, from: cursor)
+                let hourFloor = calendar.dateInterval(of: .hour, for: cursor)?.start ?? cursor
+                let nextHourStart = calendar.date(byAdding: .hour, value: 1, to: hourFloor) ?? dayEnd
+                let segEnd = min(clampedEnd, nextHourStart)
+                guard segEnd > cursor else { break }
+                let mins = segEnd.timeIntervalSince(cursor) / 60.0
+                if mins > 0 {
+                    hourlyMap[hour, default: [:]][devName, default: 0] += mins
+                    deviceDayMinutes[devName, default: 0] += mins
                 }
+                cursor = segEnd
             }
-            // 白天
-            if let s2 = calendar.date(byAdding: .hour, value: 14, to: day), s2 < now {
-                let pick = devices[(dayOffset % 3 == 0) ? 1 : ((dayOffset % 3 == 1) ? 2 : 3)]
-                let dur: Double = (dayOffset == 10) ? 210 : Double(52 + (dayOffset * 7) % 58)
-                let e2 = min(now, s2.addingTimeInterval(dur * 60))
-                if e2 > s2 {
-                    list.append(AudioExposureSample(id: UUID(), startDate: s2, endDate: e2, decibels: pick.baseDb, deviceName: pick.name, category: pick.category))
+        }
+
+        let sortedDayDevices = deviceDayMinutes.sorted { $0.value > $1.value }
+        let breakdowns: [DayDeviceBreakdown] = sortedDayDevices.enumerated().map { idx, entry in
+            DayDeviceBreakdown(id: entry.key, deviceName: entry.key, minutes: entry.value, colorIndex: idx)
+        }
+
+        var hourlyBars: [HourlyDeviceUsageBar] = []
+        for hour in 0..<24 {
+            guard let devDict = hourlyMap[hour] else { continue }
+            // 归一化防止单小时超过 60 分钟
+            let rawSum = devDict.values.reduce(0, +)
+            let scale = rawSum > 60 ? (60.0 / rawSum) : 1.0
+            for item in breakdowns {
+                if let mins = devDict[item.deviceName], mins > 0.2 {
+                    hourlyBars.append(
+                        HourlyDeviceUsageBar(
+                            id: "\(hour)-\(item.deviceName)",
+                            hour: hour,
+                            deviceName: item.deviceName,
+                            minutes: mins * scale
+                        )
+                    )
                 }
             }
         }
 
-        let sorted = list.sorted { $0.startDate > $1.startDate }
-        samples = sorted
-        deviceSummaries = buildDeviceSummaries(from: sorted)
-        errorMessage = nil
+        return ScreenTimeStatsSnapshot(
+            weekBars: weekBars,
+            weekAverageMinutes: weekAvg,
+            selectedDate: activeDay,
+            selectedDayTotalMinutes: selectedDayTotal,
+            hourlyBars: hourlyBars,
+            dayBreakdowns: breakdowns
+        )
     }
-    #endif
 
-    // MARK: - 按「全部」或「单款耳机」动态查询统计
+    // MARK: - 单款耳机详情统计（供设备页点击弹窗使用）
 
     private func filteredSamples(forDevice deviceName: String?) -> [AudioExposureSample] {
         guard let deviceName else { return samples }
-        return samples.filter { $0.deviceName == deviceName }
+        return samples.filter { canonicalName(for: $0.deviceName) == deviceName }
     }
 
     func overview(forDevice deviceName: String?) -> UsageOverviewSummary {
@@ -233,152 +348,71 @@ final class HealthDataStore: ObservableObject {
         buildPersonalRecords(from: filteredSamples(forDevice: deviceName))
     }
 
-    func snapshot(for range: StatsTimeRange, offset: Int, deviceName: String?, isEnglish: Bool = false) -> PeriodUsageSnapshot {
-        let source = filteredSamples(forDevice: deviceName)
-        let calendar = Calendar.current
-        let now = Date()
-
-        switch range {
-        case .week:
-            let currentEnd = calendar.date(byAdding: .day, value: offset * 7, to: calendar.startOfDay(for: now)) ?? now
-            let endExclusive = calendar.date(byAdding: .day, value: 1, to: currentEnd) ?? now
-            let start = calendar.date(byAdding: .day, value: -6, to: currentEnd) ?? currentEnd
-            let prevStart = calendar.date(byAdding: .day, value: -7, to: start) ?? start
-
-            let periodSamples = source.filter { $0.startDate >= start && $0.startDate < endExclusive }
-            let prevSamples = source.filter { $0.startDate >= prevStart && $0.startDate < start }
-
-            let totalMins = TimeIntervalMerger.mergedMinutes(for: periodSamples)
-            let prevMins = TimeIntervalMerger.mergedMinutes(for: prevSamples)
-
-            let fmt = DateFormatter(); fmt.dateFormat = "M.d"
-            let dayFmt = DateFormatter()
-            dayFmt.locale = Locale(identifier: isEnglish ? "en_US" : "zh_CN")
-            dayFmt.dateFormat = isEnglish ? "EEE" : "E"
-
-            let points: [UsageChartPoint] = (0..<7).map { i in
-                let d = calendar.date(byAdding: .day, value: i, to: start) ?? start
-                let list = periodSamples.filter { calendar.isDate($0.startDate, inSameDayAs: d) }
-                return UsageChartPoint(label: dayFmt.string(from: d), minutes: TimeIntervalMerger.mergedMinutes(for: list))
-            }
-
-            return PeriodUsageSnapshot(
-                range: .week,
-                title: "\(fmt.string(from: start)) — \(fmt.string(from: currentEnd))",
-                totalMinutes: totalMins,
-                deltaMinutes: prevMins > 0 ? totalMins - prevMins : nil,
-                chartPoints: points
-            )
-
-        case .month:
-            let target = calendar.date(byAdding: .month, value: offset, to: now) ?? now
-            let comps = calendar.dateComponents([.year, .month], from: target)
-            let start = calendar.date(from: comps) ?? target
-            let endExclusive = calendar.date(byAdding: .month, value: 1, to: start) ?? start
-            let prevStart = calendar.date(byAdding: .month, value: -1, to: start) ?? start
-
-            let periodSamples = source.filter { $0.startDate >= start && $0.startDate < endExclusive }
-            let prevSamples = source.filter { $0.startDate >= prevStart && $0.startDate < start }
-
-            let totalMins = TimeIntervalMerger.mergedMinutes(for: periodSamples)
-            let prevMins = TimeIntervalMerger.mergedMinutes(for: prevSamples)
-
-            let monthTitleFmt = DateFormatter()
-            monthTitleFmt.locale = Locale(identifier: isEnglish ? "en_US" : "zh_CN")
-            monthTitleFmt.dateFormat = isEnglish ? "MMM yyyy" : "yyyy.MM"
-
-            let points: [UsageChartPoint] = (0..<4).map { idx in
-                let wStart = calendar.date(byAdding: .day, value: idx * 7, to: start) ?? start
-                let wEnd = idx == 3 ? endExclusive : (calendar.date(byAdding: .day, value: (idx + 1) * 7, to: start) ?? endExclusive)
-                let list = periodSamples.filter { $0.startDate >= wStart && $0.startDate < wEnd }
-                return UsageChartPoint(label: isEnglish ? "W\(idx + 1)" : "第\(idx + 1)周", minutes: TimeIntervalMerger.mergedMinutes(for: list))
-            }
-
-            return PeriodUsageSnapshot(
-                range: .month,
-                title: monthTitleFmt.string(from: start),
-                totalMinutes: totalMins,
-                deltaMinutes: prevMins > 0 ? totalMins - prevMins : nil,
-                chartPoints: points
-            )
-
-        case .year:
-            let target = calendar.date(byAdding: .year, value: offset, to: now) ?? now
-            let year = calendar.component(.year, from: target)
-            let start = calendar.date(from: DateComponents(year: year, month: 1, day: 1)) ?? target
-            let endExclusive = calendar.date(from: DateComponents(year: year + 1, month: 1, day: 1)) ?? start
-            let prevStart = calendar.date(from: DateComponents(year: year - 1, month: 1, day: 1)) ?? start
-
-            let periodSamples = source.filter { $0.startDate >= start && $0.startDate < endExclusive }
-            let prevSamples = source.filter { $0.startDate >= prevStart && $0.startDate < start }
-
-            let totalMins = TimeIntervalMerger.mergedMinutes(for: periodSamples)
-            let prevMins = TimeIntervalMerger.mergedMinutes(for: prevSamples)
-
-            let points: [UsageChartPoint] = (1...12).map { m in
-                let mStart = calendar.date(from: DateComponents(year: year, month: m, day: 1)) ?? start
-                let mEnd = calendar.date(byAdding: .month, value: 1, to: mStart) ?? mStart
-                let list = periodSamples.filter { $0.startDate >= mStart && $0.startDate < mEnd }
-                return UsageChartPoint(label: isEnglish ? "\(m)" : "\(m)月", minutes: TimeIntervalMerger.mergedMinutes(for: list))
-            }
-
-            return PeriodUsageSnapshot(
-                range: .year,
-                title: "\(year)",
-                totalMinutes: totalMins,
-                deltaMinutes: prevMins > 0 ? totalMins - prevMins : nil,
-                chartPoints: points
-            )
-
-        case .all:
-            let totalMins = TimeIntervalMerger.mergedMinutes(for: source)
-            let byMonth = Dictionary(grouping: source) { s -> Date in
-                let c = calendar.dateComponents([.year, .month], from: s.startDate)
-                return calendar.date(from: c) ?? s.startDate
-            }
-            let recentMonths = byMonth.keys.sorted().suffix(6)
-            let mFmt = DateFormatter()
-            mFmt.locale = Locale(identifier: isEnglish ? "en_US" : "zh_CN")
-            mFmt.dateFormat = isEnglish ? "MMM" : "M月"
-            let points = recentMonths.map { d in
-                UsageChartPoint(label: mFmt.string(from: d), minutes: TimeIntervalMerger.mergedMinutes(for: byMonth[d] ?? []))
-            }
-
-            return PeriodUsageSnapshot(
-                range: .all,
-                title: isEnglish ? "All Time" : "全部",
-                totalMinutes: totalMins,
-                deltaMinutes: nil,
-                chartPoints: points
-            )
-        }
-    }
-
-    // MARK: - 持久化与内部计算
+    // MARK: - 持久化与聚合
 
     private func applyAndPersist(_ newSamples: [AudioExposureSample], source: String) {
         let sorted = newSamples.sorted { $0.startDate > $1.startDate }
         samples = sorted
         dataSourceLabel = source
         defaults.set(source, forKey: sourceLabelKey)
-        deviceSummaries = buildDeviceSummaries(from: sorted)
+        rebuildSummaries()
         saveCache(sorted)
     }
 
     private func loadCachedSamples() {
         guard let data = try? Data(contentsOf: cacheFileURL),
               let decoded = try? JSONDecoder().decode([AudioExposureSample].self, from: data),
-              !decoded.isEmpty else {
-            return
-        }
+              !decoded.isEmpty else { return }
         samples = decoded
-        deviceSummaries = buildDeviceSummaries(from: decoded)
+        rebuildSummaries()
     }
 
     private func saveCache(_ list: [AudioExposureSample]) {
         if let data = try? JSONEncoder().encode(list) {
             try? data.write(to: cacheFileURL, options: .atomic)
         }
+    }
+
+    private func rebuildSummaries() {
+        guard !samples.isEmpty else {
+            deviceSummaries = []
+            return
+        }
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: samples) { canonicalName(for: $0.deviceName) }
+        let raw = grouped.map { name, group in
+            (name: name, mins: TimeIntervalMerger.mergedMinutes(for: group), group: group)
+        }
+        let grandTotal = max(1.0, raw.reduce(0.0) { $0 + $1.mins })
+        let primaryName = raw.max { $0.mins < $1.mins }?.name
+
+        var summaries = raw.map { item -> HeadphoneUsageSummary in
+            let days = Set(item.group.map { calendar.startOfDay(for: $0.startDate) }).count
+            return HeadphoneUsageSummary(
+                id: item.name,
+                deviceName: item.name,
+                category: HeadphoneCategory.infer(from: item.name),
+                totalMinutes: item.mins,
+                sharePercentage: (item.mins / grandTotal) * 100.0,
+                averageDecibels: Self.weightedAverageDecibels(for: item.group),
+                activeDays: days,
+                lastUsedDate: item.group.map(\.endDate).max() ?? Date(),
+                isPrimary: item.name == primaryName
+            )
+        }
+
+        // 按用户自定义排序（未排序的按累计时长降序追加）
+        summaries.sort { lhs, rhs in
+            let li = customDeviceOrder.firstIndex(of: lhs.deviceName)
+            let ri = customDeviceOrder.firstIndex(of: rhs.deviceName)
+            switch (li, ri) {
+            case let (a?, b?): return a < b
+            case (_?, nil): return true
+            case (nil, _?): return false
+            case (nil, nil): return lhs.totalMinutes > rhs.totalMinutes
+            }
+        }
+        deviceSummaries = summaries
     }
 
     private func buildOverview(from input: [AudioExposureSample]) -> UsageOverviewSummary {
@@ -409,31 +443,6 @@ final class HealthDataStore: ObservableObject {
             dailyAverageMinutes: dailyAvg,
             weightedAverageDecibels: Self.weightedAverageDecibels(for: input)
         )
-    }
-
-    private func buildDeviceSummaries(from input: [AudioExposureSample]) -> [HeadphoneUsageSummary] {
-        guard !input.isEmpty else { return [] }
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: input, by: \.deviceName)
-        let raw = grouped.map { name, group in
-            (name: name, mins: TimeIntervalMerger.mergedMinutes(for: group), group: group)
-        }
-        let grandTotal = max(1.0, raw.reduce(0.0) { $0 + $1.mins })
-
-        return raw.map { item in
-            let days = Set(item.group.map { calendar.startOfDay(for: $0.startDate) }).count
-            return HeadphoneUsageSummary(
-                id: item.name,
-                deviceName: item.name,
-                category: item.group.first?.category ?? HeadphoneCategory.infer(from: item.name),
-                totalMinutes: item.mins,
-                sharePercentage: (item.mins / grandTotal) * 100.0,
-                averageDecibels: Self.weightedAverageDecibels(for: item.group),
-                activeDays: days,
-                lastUsedDate: item.group.map(\.endDate).max() ?? Date()
-            )
-        }
-        .sorted { $0.totalMinutes > $1.totalMinutes }
     }
 
     private func buildPersonalRecords(from input: [AudioExposureSample]) -> PersonalUsageRecords {
@@ -509,9 +518,52 @@ final class HealthDataStore: ObservableObject {
         let total = list.reduce(0.0) { $0 + $1.durationMinutes }
         return total > 0 ? weighted / total : 0
     }
+
+    #if os(macOS)
+    /// 仅限 Mac 本机预览使用的内存数据（通过 #if os(macOS) 隔离，绝不编入 iOS .ipa）
+    func loadMacPreviewOnlyData() {
+        let calendar = Calendar.current
+        let now = Date()
+        let todayStart = calendar.startOfDay(for: now)
+        var list: [AudioExposureSample] = []
+
+        let specs: [(name: String, cat: HeadphoneCategory, db: Double)] = [
+            ("AirPods Pro", .airPodsPro, 62.5),
+            ("Beoplay EX", .beoplayEX, 66.0),
+            ("AirPods Max", .airPodsMax, 59.5),
+            ("Sony WH-1000XM5", .sonyOverEar, 65.0)
+        ]
+
+        for dayOffset in 0..<45 {
+            guard let day = calendar.date(byAdding: .day, value: -dayOffset, to: todayStart) else { continue }
+            let slots: [(hour: Int, dur: Double, devIdx: Int)] = [
+                (1, 52, 0),
+                (8, 44, 0),
+                (10, 38, 1),
+                (14, 58, (dayOffset % 2 == 0) ? 2 : 0),
+                (17, 46, 1),
+                (21, 55, (dayOffset % 3 == 0) ? 3 : 0),
+                (23, 48, 0)
+            ]
+            for slot in slots {
+                if (dayOffset + slot.hour) % 5 == 0 && dayOffset > 1 { continue }
+                if let s = calendar.date(byAdding: .hour, value: slot.hour, to: day), s < now {
+                    let e = min(now, s.addingTimeInterval(slot.dur * 60))
+                    if e > s {
+                        let d = specs[slot.devIdx]
+                        list.append(AudioExposureSample(id: UUID(), startDate: s, endDate: e, decibels: d.db, deviceName: d.name, category: d.cat))
+                    }
+                }
+            }
+        }
+
+        samples = list.sorted { $0.startDate > $1.startDate }
+        rebuildSummaries()
+    }
+    #endif
 }
 
-// MARK: - Apple 健康 export.xml 流式解析器
+// MARK: - Apple 健康 export.xml 解析器
 private final class HealthExportXMLParser: NSObject, XMLParserDelegate {
     private var results: [AudioExposureSample] = []
     private let dateFormatter: DateFormatter = {
@@ -545,9 +597,7 @@ private final class HealthExportXMLParser: NSObject, XMLParserDelegate {
               let valueStr = attributeDict["value"],
               let db = Double(valueStr),
               let startDate = dateFormatter.date(from: startStr),
-              let endDate = dateFormatter.date(from: endStr) else {
-            return
-        }
+              let endDate = dateFormatter.date(from: endStr) else { return }
 
         let deviceName = Self.extractDeviceName(
             deviceAttr: attributeDict["device"],
@@ -571,13 +621,9 @@ private final class HealthExportXMLParser: NSObject, XMLParserDelegate {
             let tail = raw[range.upperBound...]
             let endIdx = tail.firstIndex(of: ",") ?? tail.firstIndex(of: ">") ?? tail.endIndex
             let extracted = tail[..<endIdx].trimmingCharacters(in: .whitespacesAndNewlines)
-            if !extracted.isEmpty {
-                return extracted
-            }
+            if !extracted.isEmpty { return extracted }
         }
-        if let src = sourceName, !src.isEmpty {
-            return src
-        }
+        if let src = sourceName, !src.isEmpty { return src }
         return "Headphones"
     }
 }

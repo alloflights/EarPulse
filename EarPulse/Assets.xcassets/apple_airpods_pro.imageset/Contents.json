@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "apple_airpods_pro.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

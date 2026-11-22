@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "bose_qc_ultra_earbuds.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

@@ -20,7 +20,7 @@ private final class ContentViewState: ObservableObject {
     @Published var showXMLImporter = false
 }
 
-/// 极简液态玻璃双入口主容器（零说明性文字 + 底部栏常驻 + 精细震动反馈）
+/// 真正 iOS 26/27 原生 Liquid Glass 悬浮双入口主容器
 struct ContentView: View {
     @EnvironmentObject private var dataStore: HealthDataStore
     @EnvironmentObject private var audioMonitor: AudioRouteMonitor
@@ -36,7 +36,7 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 topBar
 
-                Group {
+                ZStack {
                     switch uiState.selectedTab {
                     case .stats:
                         if dataStore.hasRealData {
@@ -48,11 +48,12 @@ struct ContentView: View {
                         DevicesView()
                     }
                 }
-                .transition(.opacity.combined(with: .scale(scale: 0.985)))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
             }
 
             floatingLiquidTabBar
-                .padding(.bottom, 12)
+                .padding(.bottom, 14)
         }
         .preferredColorScheme(.dark)
         .sensoryFeedback(.selection, trigger: uiState.selectedTab)
@@ -69,6 +70,7 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - 顶部极简栏
     private var topBar: some View {
         HStack(spacing: 10) {
             Text("earphone useage")
@@ -77,67 +79,94 @@ struct ContentView: View {
 
             Spacer()
 
-            Button {
-                Haptics.soft()
-                withAnimation(.snappy(duration: 0.25)) {
-                    lang.toggle()
-                }
-            } label: {
-                Text(lang.isEnglish ? "中文" : "EN")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .frame(width: 42, height: 36)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .overlay(Capsule().strokeBorder(GlassTheme.glassRimGradient, lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-
-            Menu {
-                Button {
-                    Haptics.medium()
-                    Task { await dataStore.connectAppleHealth() }
-                } label: {
-                    Label(lang.syncHealth, systemImage: "heart.fill")
-                }
-
-                Button {
-                    Haptics.light()
-                    uiState.showXMLImporter = true
-                } label: {
-                    Label(lang.importXML, systemImage: "doc.badge.plus")
-                }
-            } label: {
-                ZStack {
-                    if dataStore.isLoading {
-                        ProgressView()
-                            .tint(GlassTheme.accentBlue)
-                    } else {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.85))
-                    }
-                }
-                .frame(width: 36, height: 36)
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(GlassTheme.glassRimGradient, lineWidth: 1))
-            }
-            .menuStyle(.borderlessButton)
+            topGlassButtons
         }
         .padding(.horizontal, 20)
         .padding(.top, 14)
         .padding(.bottom, 8)
     }
 
+    @ViewBuilder
+    private var topGlassButtons: some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            GlassEffectContainer(spacing: 10) {
+                HStack(spacing: 10) {
+                    languageButton
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                    syncMenuButton
+                        .glassEffect(.regular.interactive(), in: .circle)
+                }
+            }
+        } else {
+            HStack(spacing: 10) {
+                languageButton
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .overlay(Capsule().strokeBorder(GlassTheme.glassRimGradient, lineWidth: 1))
+                syncMenuButton
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(Circle().strokeBorder(GlassTheme.glassRimGradient, lineWidth: 1))
+            }
+        }
+    }
+
+    private var languageButton: some View {
+        Button {
+            Haptics.soft()
+            withAnimation(.snappy(duration: 0.25)) {
+                lang.toggle()
+            }
+        } label: {
+            Text(lang.isEnglish ? "中文" : "EN")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.9))
+                .frame(width: 44, height: 36)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var syncMenuButton: some View {
+        Menu {
+            Button {
+                Haptics.medium()
+                Task { await dataStore.connectAppleHealth() }
+            } label: {
+                Label(lang.syncHealth, systemImage: "heart.fill")
+            }
+
+            Button {
+                Haptics.light()
+                uiState.showXMLImporter = true
+            } label: {
+                Label(lang.importXML, systemImage: "doc.badge.plus")
+            }
+        } label: {
+            ZStack {
+                if dataStore.isLoading {
+                    ProgressView()
+                        .tint(GlassTheme.accentBlue)
+                } else {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.9))
+                }
+            }
+            .frame(width: 36, height: 36)
+        }
+        .menuStyle(.borderlessButton)
+    }
+
+    // MARK: - 首次接入页
     private var emptyRealDataView: some View {
         VStack(spacing: 28) {
             Spacer()
 
             AppleHeadphoneIcon(
                 category: audioMonitor.connectedCategory,
-                size: 88,
+                size: 100,
                 animated: true
             )
-            .frame(height: 120)
+            .frame(height: 132)
 
             VStack(spacing: 12) {
                 Button {
@@ -179,13 +208,15 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - 真正 iOS 26/27 原生 Liquid Glass 悬浮底栏（外框 .regular 不拦截点击，子按钮精准切换）
+    @ViewBuilder
     private var floatingLiquidTabBar: some View {
-        HStack(spacing: 6) {
+        let tabs = HStack(spacing: 6) {
             ForEach(AppTab.allCases, id: \.rawValue) { tab in
                 let isSelected = uiState.selectedTab == tab
                 Button {
                     Haptics.light()
-                    withAnimation(.spring(response: 0.36, dampingFraction: 0.78)) {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
                         uiState.selectedTab = tab
                     }
                 } label: {
@@ -195,18 +226,15 @@ struct ContentView: View {
                         Text(tab == .stats ? lang.statsTab : lang.devicesTab)
                             .font(.subheadline.weight(.semibold))
                     }
-                    .foregroundStyle(isSelected ? .white : .white.opacity(0.52))
-                    .padding(.horizontal, 24)
+                    .foregroundStyle(isSelected ? .white : .white.opacity(0.65))
+                    .padding(.horizontal, 26)
                     .padding(.vertical, 12)
+                    .contentShape(Capsule())
                     .background {
                         if isSelected {
                             Capsule()
                                 .fill(GlassTheme.activeBlueGlass)
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
-                                )
-                                .shadow(color: GlassTheme.accentBlue.opacity(0.35), radius: 12, x: 0, y: 4)
+                                .shadow(color: GlassTheme.accentBlue.opacity(0.45), radius: 12, x: 0, y: 4)
                                 .matchedGeometryEffect(id: "ACTIVE_TAB_PILL", in: tabNamespace)
                         }
                     }
@@ -215,12 +243,20 @@ struct ContentView: View {
             }
         }
         .padding(6)
-        .background {
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(Capsule().fill(Color.white.opacity(0.05)))
-                .overlay(Capsule().strokeBorder(GlassTheme.glassRimGradient, lineWidth: 1))
-                .shadow(color: Color.black.opacity(0.65), radius: 22, x: 0, y: 12)
+
+        if #available(iOS 26.0, macOS 26.0, *) {
+            GlassEffectContainer(spacing: 12) {
+                tabs
+                    .glassEffect(.regular, in: .capsule)
+            }
+        } else {
+            tabs
+                .background {
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                        .overlay(Capsule().strokeBorder(GlassTheme.glassRimGradient, lineWidth: 1))
+                        .shadow(color: Color.black.opacity(0.65), radius: 22, x: 0, y: 12)
+                }
         }
     }
 }

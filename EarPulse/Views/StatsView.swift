@@ -167,8 +167,36 @@ struct StatsView: View {
                 }
             }
             .frame(height: 156)
+
+            // 今日平均噪音 & 本周平均噪音紧凑双栏
+            HStack(spacing: 12) {
+                noiseMiniPill(title: lang.todayAvgNoise, decibels: snapshot.todayAverageDecibels)
+                noiseMiniPill(title: lang.weekAvgNoise, decibels: snapshot.weekAverageDecibels)
+            }
+            .padding(.top, 2)
         }
         .liquidGlassCard(cornerRadius: 28, padding: 22)
+    }
+
+    private func noiseMiniPill(title: String, decibels: Double) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "waveform")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(GlassTheme.softBlue)
+            Text(title)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.white.opacity(0.62))
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Text(decibels > 0 ? "\(Int(round(decibels))) dB" : "-- dB")
+                .font(.caption.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func selectDay(_ date: Date) {
@@ -254,11 +282,19 @@ struct StatsView: View {
                                         .foregroundStyle(GlassTheme.deviceColor(at: item.colorIndex))
                                         .lineLimit(1)
                                 }
-                                Text(DurationFormatter.hoursMinutes(minutes: item.minutes))
-                                    .font(.subheadline.weight(.bold))
-                                    .monospacedDigit()
-                                    .foregroundStyle(.white)
-                                    .contentTransition(.numericText())
+                                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                    Text(DurationFormatter.hoursMinutes(minutes: item.minutes))
+                                        .font(.subheadline.weight(.bold))
+                                        .monospacedDigit()
+                                        .foregroundStyle(.white)
+                                        .contentTransition(.numericText())
+                                    if item.averageDecibels > 0 {
+                                        Text("\(Int(round(item.averageDecibels))) dB")
+                                            .font(.caption2.weight(.semibold))
+                                            .monospacedDigit()
+                                            .foregroundStyle(GlassTheme.softBlue.opacity(0.85))
+                                    }
+                                }
                             }
                         }
                     }

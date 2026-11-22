@@ -253,6 +253,12 @@ final class HealthDataStore: ObservableObject {
         dayFmt.dateFormat = isEnglish ? "EEE" : "E"
 
         // 过去 7 天（含今天，默认高亮昨天）
+        let weekStart = calendar.date(byAdding: .day, value: -6, to: today) ?? today
+        let weekSamples = recentSamples.filter { $0.startDate >= weekStart }
+        let todaySamples = recentSamples.filter { calendar.isDate($0.startDate, inSameDayAs: today) }
+        let todayAvgDb = Self.weightedAverageDecibels(for: todaySamples)
+        let weekAvgDb = Self.weightedAverageDecibels(for: weekSamples)
+
         let weekBars: [DailyUsageBar] = (0..<7).reversed().map { offset in
             let day = calendar.date(byAdding: .day, value: -offset, to: today) ?? today
             let daySamples = recentSamples.filter { calendar.isDate($0.startDate, inSameDayAs: day) }
@@ -275,8 +281,9 @@ final class HealthDataStore: ObservableObject {
         let daySamples = recentSamples.filter { $0.endDate > activeDay && $0.startDate < dayEnd }
         let selectedDayTotal = TimeIntervalMerger.mergedMinutes(for: daySamples)
 
-        // 按设备累计时长排序分配稳定色标
+        // 按设备累计时长排序分配稳定色标，同时计算该日各耳机加权平均噪音
         var deviceDayMinutes: [String: Double] = [:]
+        var deviceDayWeightedDb: [String: Double] = [:]
         var hourlyMap: [Int: [String: Double]] = [:]
 
         for sample in daySamples {
@@ -297,6 +304,7 @@ final class HealthDataStore: ObservableObject {
                 if mins > 0 {
                     hourlyMap[hour, default: [:]][devName, default: 0] += mins
                     deviceDayMinutes[devName, default: 0] += mins
+                    deviceDayWeightedDb[devName, default: 0] += sample.decibels * mins
                 }
                 cursor = segEnd
             }
@@ -304,7 +312,14 @@ final class HealthDataStore: ObservableObject {
 
         let sortedDayDevices = deviceDayMinutes.sorted { $0.value > $1.value }
         let breakdowns: [DayDeviceBreakdown] = sortedDayDevices.enumerated().map { idx, entry in
-            DayDeviceBreakdown(id: entry.key, deviceName: entry.key, minutes: entry.value, colorIndex: idx)
+            let avgDb = entry.value > 0 ? (deviceDayWeightedDb[entry.key] ?? 0) / entry.value : 0
+            return DayDeviceBreakdown(
+                id: entry.key,
+                deviceName: entry.key,
+                minutes: entry.value,
+                averageDecibels: avgDb,
+                colorIndex: idx
+            )
         }
 
         var hourlyBars: [HourlyDeviceUsageBar] = []
@@ -330,6 +345,8 @@ final class HealthDataStore: ObservableObject {
         return ScreenTimeStatsSnapshot(
             weekBars: weekBars,
             weekAverageMinutes: weekAvg,
+            todayAverageDecibels: todayAvgDb,
+            weekAverageDecibels: weekAvgDb,
             selectedDate: activeDay,
             selectedDayTotalMinutes: selectedDayTotal,
             hourlyBars: hourlyBars,

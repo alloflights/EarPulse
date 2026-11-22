@@ -168,9 +168,10 @@ struct DevicesView: View {
                         .foregroundStyle(.white.opacity(0.55))
                 }
 
-                Text("\(lang.daysCount(device.activeDays)) · \(Int(round(device.sharePercentage)))%")
+                Text("\(lang.daysCount(device.activeDays)) · \(Int(round(device.sharePercentage)))% · \(Int(round(device.averageDecibels))) dB")
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.5))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.55))
             }
         }
         .frame(width: 288)

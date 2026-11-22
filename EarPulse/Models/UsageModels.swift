@@ -165,13 +165,16 @@ struct DayDeviceBreakdown: Identifiable, Sendable {
     let id: String
     let deviceName: String
     let minutes: Double
+    let averageDecibels: Double
     let colorIndex: Int
 }
 
-/// 屏幕时间风格统计快照（过去一周 + 选中日 24 小时逐小时）
+/// 屏幕时间风格统计快照（过去一周 + 选中日 24 小时逐小时 + 今日/本周平均噪音）
 struct ScreenTimeStatsSnapshot: Sendable {
     let weekBars: [DailyUsageBar]
     let weekAverageMinutes: Double
+    let todayAverageDecibels: Double
+    let weekAverageDecibels: Double
     let selectedDate: Date
     let selectedDayTotalMinutes: Double
     let hourlyBars: [HourlyDeviceUsageBar]

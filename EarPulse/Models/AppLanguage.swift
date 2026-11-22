@@ -47,6 +47,8 @@ final class LanguageStore: ObservableObject {
     var yesterday: String { isEnglish ? "Yesterday" : "昨天" }
     var avgLabel: String { isEnglish ? "Avg" : "平均" }
     var hourlyTitle: String { isEnglish ? "Hourly" : "逐小时使用" }
+    var todayAvgNoise: String { isEnglish ? "Today Noise" : "今日平均噪音" }
+    var weekAvgNoise: String { isEnglish ? "7-Day Noise" : "本周平均噪音" }
 
     var bestDay: String { isEnglish ? "Best Day" : "单日最长" }
     var longestSession: String { isEnglish ? "Longest" : "单次最长" }

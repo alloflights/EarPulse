@@ -124,18 +124,9 @@ struct DevicesView: View {
 
         return VStack(spacing: 18) {
             HStack {
-                if device.isPrimary {
-                    Text(lang.primaryDevice)
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(GlassTheme.activeBlueGlass, in: Capsule())
-                } else {
-                    Text(lang.categoryTitle(device.category))
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.55))
-                }
+                Text(lang.categoryTitle(device.category))
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.55))
 
                 Spacer()
 
@@ -345,19 +336,9 @@ private struct DeviceDetailSheet: View {
                         .padding(.top, 10)
 
                     VStack(spacing: 6) {
-                        HStack(spacing: 8) {
-                            Text(device.deviceName)
-                                .font(.title2.weight(.bold))
-                                .foregroundStyle(.white)
-                            if device.isPrimary {
-                                Text(lang.primaryDevice)
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(GlassTheme.activeBlueGlass, in: Capsule())
-                            }
-                        }
+                        Text(device.deviceName)
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(.white)
 
                         Text("\(total.hours)h \(total.mins)min")
                             .font(.system(size: 36, weight: .bold, design: .rounded))

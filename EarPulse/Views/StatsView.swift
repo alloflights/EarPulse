@@ -8,13 +8,14 @@ private final class ScreenTimeStatsState: ObservableObject {
 }
 
 /// 仿 Apple「屏幕时间」布局的统计页：
-/// 1. 过去一周每日柱状图 + 虚线「平均」线（单击任意柱条即时切换，零长按延迟）
-/// 2. 昨天 / 选中日 24 小时逐小时分耳机堆叠柱状图 + 下方各耳机色标图例与时长
+/// 1. 过去一周每日柱状图 + 虚线「平均」线（单击即时切换，带滑动背光与蓝色柱条平滑过渡动效）
+/// 2. 昨天 / 选中日 24 小时逐小时分耳机堆叠柱状图 + 下方各耳机色标图例与平均分贝
 struct StatsView: View {
     @EnvironmentObject private var dataStore: HealthDataStore
     @EnvironmentObject private var lang: LanguageStore
 
     @StateObject private var uiState = ScreenTimeStatsState()
+    @Namespace private var weekBarNamespace
 
     var body: some View {
         let snapshot = dataStore.screenTimeSnapshot(
@@ -36,7 +37,7 @@ struct StatsView: View {
         }
     }
 
-    // MARK: - 1. 过去一周 + 平均虚线卡片（轻点即切，即时变色）
+    // MARK: - 1. 过去一周 + 平均虚线卡片（轻点即切 + 蓝色柱条滑动背光与渐显弹簧动效）
     private func weeklyOverviewCard(_ snapshot: ScreenTimeStatsSnapshot) -> some View {
         let selectedSplit = DurationFormatter.split(minutes: snapshot.selectedDayTotalMinutes)
         let avgHours = snapshot.weekAverageMinutes / 60.0
@@ -105,25 +106,69 @@ struct StatsView: View {
                         }
                 }
 
+                // 底层磨砂灰柱（始终存在）
+                ForEach(snapshot.weekBars) { bar in
+                    BarMark(
+                        x: .value("Day", bar.weekdayLabel),
+                        y: .value("Hours", bar.totalMinutes / 60.0),
+                        stacking: .unstacked
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.28), Color.white.opacity(0.15)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .cornerRadius(7)
+                }
+
+                // 顶层蓝光选中柱（通过 opacity 平滑淡入淡出，避免 LinearGradient 硬切无动效）
                 ForEach(snapshot.weekBars) { bar in
                     let isSelected = Calendar.current.isDate(bar.date, inSameDayAs: snapshot.selectedDate)
                     BarMark(
                         x: .value("Day", bar.weekdayLabel),
-                        y: .value("Hours", bar.totalMinutes / 60.0)
+                        y: .value("Hours", bar.totalMinutes / 60.0),
+                        stacking: .unstacked
                     )
-                    .foregroundStyle(
-                        isSelected
-                            ? GlassTheme.activeBlueGlass
-                            : LinearGradient(
-                                colors: [Color.white.opacity(0.28), Color.white.opacity(0.16)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                    )
+                    .foregroundStyle(GlassTheme.activeBlueGlass)
+                    .opacity(isSelected ? 1.0 : 0.0)
                     .cornerRadius(7)
                 }
             }
-            .animation(.easeOut(duration: 0.16), value: uiState.selectedDate)
+            .animation(.spring(response: 0.34, dampingFraction: 0.78), value: snapshot.selectedDate)
+            // 选中列滑动背光柱（matchedGeometryEffect 横向弹性滑移）
+            .chartBackground { proxy in
+                GeometryReader { geo in
+                    let plotFrame = proxy.plotFrame.map { geo[$0] } ?? geo.frame(in: .local)
+                    HStack(spacing: 0) {
+                        ForEach(snapshot.weekBars) { bar in
+                            let isSelected = Calendar.current.isDate(bar.date, inSameDayAs: snapshot.selectedDate)
+                            ZStack {
+                                if isSelected {
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    GlassTheme.accentBlue.opacity(0.18),
+                                                    GlassTheme.accentBlue.opacity(0.05),
+                                                    Color.clear
+                                                ],
+                                                startPoint: .top,
+                                                endPoint: .bottom
+                                            )
+                                        )
+                                        .padding(.horizontal, 3)
+                                        .matchedGeometryEffect(id: "WEEK_SELECTED_COLUMN", in: weekBarNamespace)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                    }
+                    .frame(width: plotFrame.width, height: plotFrame.height)
+                    .position(x: plotFrame.midX, y: plotFrame.midY)
+                }
+            }
             .chartOverlay { proxy in
                 GeometryReader { geo in
                     Rectangle()
@@ -200,14 +245,16 @@ struct StatsView: View {
     }
 
     private func selectDay(_ date: Date) {
-        guard uiState.selectedDate == nil || !Calendar.current.isDate(uiState.selectedDate!, inSameDayAs: date) else { return }
+        if let current = uiState.selectedDate, Calendar.current.isDate(current, inSameDayAs: date) {
+            return
+        }
         Haptics.selection()
-        withAnimation(.easeOut(duration: 0.16)) {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.78)) {
             uiState.selectedDate = date
         }
     }
 
-    // MARK: - 2. 24 小时逐小时分耳机堆叠柱状图 + 下方分耳机图例
+    // MARK: - 2. 24 小时逐小时分耳机堆叠柱状图 + 下方分耳机图例与平均分贝
     private func hourlyDetailCard(_ snapshot: ScreenTimeStatsSnapshot) -> some View {
         let colorDomain = snapshot.dayBreakdowns.map(\.deviceName)
         let colorRange = snapshot.dayBreakdowns.map { GlassTheme.deviceColor(at: $0.colorIndex) }
@@ -238,6 +285,7 @@ struct StatsView: View {
                     }
                 }
             }
+            .animation(.spring(response: 0.36, dampingFraction: 0.80), value: snapshot.selectedDate)
             .chartXScale(domain: 0...23)
             .chartYScale(domain: 0...60)
             .chartXAxis {

@@ -8,7 +8,7 @@ private final class DevicesViewState: ObservableObject {
 }
 
 /// 旗舰级液态玻璃「设备」页：
-/// 1. 横向滑动大卡片轮播（真实耳机照片/原生图标 + 主力耳机标注 + 点击查看详情）
+/// 1. 横向滑动大卡片轮播（真实耳机照片/原生图标 + 点击查看详情）
 /// 2. 支持自定义排序与合并多个耳机数据
 /// 3. 下方保留极简自定义限额提醒卡片
 struct DevicesView: View {
@@ -73,6 +73,7 @@ struct DevicesView: View {
                 .environmentObject(lang)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+                .presentationBackground(Color(red: 0.03, green: 0.07, blue: 0.16))
         }
         .sheet(isPresented: $uiState.showManageSheet) {
             DeviceManageSheet()
@@ -80,6 +81,7 @@ struct DevicesView: View {
                 .environmentObject(lang)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+                .presentationBackground(Color(red: 0.03, green: 0.07, blue: 0.16))
         }
     }
 
@@ -311,6 +313,21 @@ struct DevicesView: View {
     }
 }
 
+// MARK: - 静态无闪烁弹窗背景与轻量卡片样式
+private struct StaticSheetBackground: View {
+    var body: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 0.04, green: 0.10, blue: 0.24),
+                Color(red: 0.02, green: 0.05, blue: 0.13)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
+    }
+}
+
 // MARK: - 单款耳机详情 Sheet（总使用情况 + 个人纪录 2x2）
 private struct DeviceDetailSheet: View {
     let device: HeadphoneUsageSummary
@@ -327,7 +344,7 @@ private struct DeviceDetailSheet: View {
         let month = DurationFormatter.split(minutes: records.longestMonthMinutes)
 
         ZStack {
-            LiquidGlassBackdrop()
+            StaticSheetBackground()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 22) {
@@ -374,11 +391,19 @@ private struct DeviceDetailSheet: View {
                 .foregroundStyle(.white)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlassCard(cornerRadius: 22, padding: 16)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color.white.opacity(0.07))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.8)
+                )
+        )
     }
 }
 
-// MARK: - 耳机排序与多设备合并 Sheet
+// MARK: - 耳机排序与多设备合并 Sheet（静态背景 + 轻量行卡片，消除弹出闪烁）
 private struct DeviceManageSheet: View {
     @EnvironmentObject private var dataStore: HealthDataStore
     @EnvironmentObject private var lang: LanguageStore
@@ -387,10 +412,10 @@ private struct DeviceManageSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LiquidGlassBackdrop()
+                StaticSheetBackground()
 
-                ScrollView {
-                    VStack(spacing: 14) {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 12) {
                         ForEach(Array(dataStore.deviceSummaries.enumerated()), id: \.element.id) { index, device in
                             HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 3) {
@@ -407,12 +432,13 @@ private struct DeviceManageSheet: View {
                                 HStack(spacing: 6) {
                                     Button {
                                         Haptics.soft()
-                                        withAnimation(.snappy) {
+                                        withAnimation(.snappy(duration: 0.22)) {
                                             dataStore.moveDevice(fromIndex: index, toIndex: max(0, index - 1))
                                         }
                                     } label: {
                                         Image(systemName: "chevron.up")
                                             .font(.caption.weight(.bold))
+                                            .foregroundStyle(.white.opacity(index == 0 ? 0.28 : 0.88))
                                             .frame(width: 28, height: 28)
                                             .background(Color.white.opacity(0.08), in: Circle())
                                     }
@@ -421,12 +447,13 @@ private struct DeviceManageSheet: View {
 
                                     Button {
                                         Haptics.soft()
-                                        withAnimation(.snappy) {
+                                        withAnimation(.snappy(duration: 0.22)) {
                                             dataStore.moveDevice(fromIndex: index, toIndex: min(dataStore.deviceSummaries.count - 1, index + 1))
                                         }
                                     } label: {
                                         Image(systemName: "chevron.down")
                                             .font(.caption.weight(.bold))
+                                            .foregroundStyle(.white.opacity(index == dataStore.deviceSummaries.count - 1 ? 0.28 : 0.88))
                                             .frame(width: 28, height: 28)
                                             .background(Color.white.opacity(0.08), in: Circle())
                                     }
@@ -439,7 +466,7 @@ private struct DeviceManageSheet: View {
                                         ForEach(dataStore.deviceSummaries.filter { $0.deviceName != device.deviceName }) { target in
                                             Button("→ \(target.deviceName)") {
                                                 Haptics.success()
-                                                withAnimation(.snappy) {
+                                                withAnimation(.snappy(duration: 0.22)) {
                                                     dataStore.mergeDevice(device.deviceName, into: target.deviceName)
                                                 }
                                             }
@@ -450,34 +477,48 @@ private struct DeviceManageSheet: View {
                                             .foregroundStyle(.white)
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 6)
-                                            .background(GlassTheme.accentBlue.opacity(0.35), in: Capsule())
+                                            .background(GlassTheme.accentBlue.opacity(0.38), in: Capsule())
                                     }
                                     .menuStyle(.borderlessButton)
                                 }
                             }
-                            .liquidGlassCard(cornerRadius: 20, padding: 14)
+                            .padding(14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .fill(Color.white.opacity(0.07))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.8)
+                                    )
+                            )
                         }
 
                         if !dataStore.deviceMergeMap.isEmpty || !dataStore.customDeviceOrder.isEmpty {
                             Button {
                                 Haptics.light()
-                                withAnimation(.snappy) {
+                                withAnimation(.snappy(duration: 0.22)) {
                                     dataStore.resetCustomizations()
                                 }
                             } label: {
                                 Text(lang.unmergeAll)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color.white.opacity(0.10), in: Capsule())
                             }
-                            .buttonStyle(LiquidGlassPillButtonStyle(prominent: false))
+                            .buttonStyle(.plain)
                             .padding(.top, 8)
                         }
                     }
                     .padding(20)
                 }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle(lang.manageDevices)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

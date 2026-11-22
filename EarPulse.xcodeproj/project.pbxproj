@@ -18,11 +18,39 @@
 		AA0100070000000000000007 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0200070000000000000007 /* ContentView.swift */; };
 		AA0100080000000000000008 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0200080000000000000008 /* StatsView.swift */; };
 		AA0100090000000000000009 /* DevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0200090000000000000009 /* DevicesView.swift */; };
+		AA0100210000000000000021 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0200210000000000000021 /* WidgetSnapshot.swift */; };
 		AA0100120000000000000012 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0200120000000000000012 /* Assets.xcassets */; };
 		AA0100180000000000000018 /* airpods_pro_open.mov in Resources */ = {isa = PBXBuildFile; fileRef = AA0200180000000000000018 /* airpods_pro_open.mov */; };
 		AA0100190000000000000019 /* airpods_max_open.mov in Resources */ = {isa = PBXBuildFile; fileRef = AA0200190000000000000019 /* airpods_max_open.mov */; };
 		AA0100200000000000000020 /* airpods_open.mov in Resources */ = {isa = PBXBuildFile; fileRef = AA0200200000000000000020 /* airpods_open.mov */; };
+		BB0100010000000000000001 /* EarPulseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0200010000000000000001 /* EarPulseWidget.swift */; };
+		BB0100020000000000000002 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0200210000000000000021 /* WidgetSnapshot.swift */; };
+		BB0100030000000000000003 /* EarPulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BB0200000000000000000000 /* EarPulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BB0C00010000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0900010000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BB0500010000000000000001;
+			remoteInfo = EarPulseWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BB0E00010000000000000001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BB0100030000000000000003 /* EarPulseWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		AA0200000000000000000000 /* EarPulse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EarPulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -37,16 +65,28 @@
 		AA0200070000000000000007 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA0200080000000000000008 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		AA0200090000000000000009 /* DevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesView.swift; sourceTree = "<group>"; };
+		AA0200210000000000000021 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		AA0200120000000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA0200130000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA0200140000000000000014 /* EarPulse.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EarPulse.entitlements; sourceTree = "<group>"; };
 		AA0200180000000000000018 /* airpods_pro_open.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = airpods_pro_open.mov; sourceTree = "<group>"; };
 		AA0200190000000000000019 /* airpods_max_open.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = airpods_max_open.mov; sourceTree = "<group>"; };
 		AA0200200000000000000020 /* airpods_open.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = airpods_open.mov; sourceTree = "<group>"; };
+		BB0200000000000000000000 /* EarPulseWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EarPulseWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BB0200010000000000000001 /* EarPulseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarPulseWidget.swift; sourceTree = "<group>"; };
+		BB0200020000000000000002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		BB0200030000000000000003 /* EarPulseWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EarPulseWidget.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		AA0300010000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB0300010000000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -60,6 +100,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0400020000000000000002 /* EarPulse */,
+				BB0400010000000000000001 /* EarPulseWidget */,
 				AA0400030000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -72,6 +113,7 @@
 				AA0400050000000000000005 /* Services */,
 				AA0400060000000000000006 /* Components */,
 				AA0400070000000000000007 /* Views */,
+				AA0400100000000000000010 /* Shared */,
 				AA0400080000000000000008 /* Resources */,
 				AA0200120000000000000012 /* Assets.xcassets */,
 				AA0200130000000000000013 /* Info.plist */,
@@ -80,10 +122,21 @@
 			path = EarPulse;
 			sourceTree = "<group>";
 		};
+		BB0400010000000000000001 /* EarPulseWidget */ = {
+			isa = PBXGroup;
+			children = (
+				BB0200010000000000000001 /* EarPulseWidget.swift */,
+				BB0200020000000000000002 /* Info.plist */,
+				BB0200030000000000000003 /* EarPulseWidget.entitlements */,
+			);
+			path = EarPulseWidget;
+			sourceTree = "<group>";
+		};
 		AA0400030000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				AA0200000000000000000000 /* EarPulse.app */,
+				BB0200000000000000000000 /* EarPulseWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -126,6 +179,14 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
+		AA0400100000000000000010 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				AA0200210000000000000021 /* WidgetSnapshot.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		AA0400080000000000000008 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
@@ -154,15 +215,34 @@
 				AA0600010000000000000001 /* Sources */,
 				AA0300010000000000000001 /* Frameworks */,
 				AA0700010000000000000001 /* Resources */,
+				BB0E00010000000000000001 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BB0D00010000000000000001 /* PBXTargetDependency */,
 			);
 			name = EarPulse;
 			productName = EarPulse;
 			productReference = AA0200000000000000000000 /* EarPulse.app */;
 			productType = "com.apple.product-type.application";
+		};
+		BB0500010000000000000001 /* EarPulseWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BB0800020000000000000002 /* Build configuration list for PBXNativeTarget "EarPulseWidget" */;
+			buildPhases = (
+				BB0600010000000000000001 /* Sources */,
+				BB0300010000000000000001 /* Frameworks */,
+				BB0700010000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = EarPulseWidget;
+			productName = EarPulseWidget;
+			productReference = BB0200000000000000000000 /* EarPulseWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -175,6 +255,9 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					AA0500010000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					BB0500010000000000000001 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -194,6 +277,7 @@
 			projectRoot = "";
 			targets = (
 				AA0500010000000000000001 /* EarPulse */,
+				BB0500010000000000000001 /* EarPulseWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -207,6 +291,13 @@
 				AA0100180000000000000018 /* airpods_pro_open.mov in Resources */,
 				AA0100190000000000000019 /* airpods_max_open.mov in Resources */,
 				AA0100200000000000000020 /* airpods_open.mov in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB0700010000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -228,10 +319,28 @@
 				AA0100070000000000000007 /* ContentView.swift in Sources */,
 				AA0100080000000000000008 /* StatsView.swift in Sources */,
 				AA0100090000000000000009 /* DevicesView.swift in Sources */,
+				AA0100210000000000000021 /* WidgetSnapshot.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB0600010000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB0100010000000000000001 /* EarPulseWidget.swift in Sources */,
+				BB0100020000000000000002 /* WidgetSnapshot.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BB0D00010000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BB0500010000000000000001 /* EarPulseWidget */;
+			targetProxy = BB0C00010000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		AA1000010000000000000001 /* Debug */ = {
@@ -267,7 +376,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EarPulse/EarPulse.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -293,7 +402,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EarPulse/EarPulse.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -306,6 +415,58 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.earpulse.hearinghealth;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1";
+			};
+			name = Release;
+		};
+		BB1000030000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = EarPulseWidget/EarPulseWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = EarPulseWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.earpulse.hearinghealth.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1";
+			};
+			name = Debug;
+		};
+		BB1000040000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = EarPulseWidget/EarPulseWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = EarPulseWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.earpulse.hearinghealth.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1";
@@ -329,6 +490,15 @@
 			buildConfigurations = (
 				AA1000030000000000000003 /* Debug */,
 				AA1000040000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BB0800020000000000000002 /* Build configuration list for PBXNativeTarget "EarPulseWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BB1000030000000000000003 /* Debug */,
+				BB1000040000000000000004 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

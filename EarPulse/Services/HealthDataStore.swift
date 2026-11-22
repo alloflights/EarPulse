@@ -434,6 +434,56 @@ final class HealthDataStore: ObservableObject {
             }
         }
         deviceSummaries = summaries
+        publishWidgetSnapshot()
+    }
+
+    /// 将今日使用频率、累计时长与平均分贝写入 App Group 共享容器供桌面小组件即时展示
+    private func publishWidgetSnapshot() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        let weekStart = calendar.date(byAdding: .day, value: -6, to: today) ?? today
+
+        let recent = samples.filter { $0.endDate >= weekStart }
+        let todaySamples = recent.filter { $0.endDate > today && $0.startDate < tomorrow }
+        let weekSamples = recent.filter { $0.startDate >= weekStart }
+
+        var hourly = Array(repeating: 0.0, count: 24)
+        for sample in todaySamples {
+            let clampedStart = max(sample.startDate, today)
+            let clampedEnd = min(sample.endDate, tomorrow)
+            guard clampedEnd > clampedStart else { continue }
+            var cursor = clampedStart
+            while cursor < clampedEnd {
+                let hour = calendar.component(.hour, from: cursor)
+                let hourFloor = calendar.dateInterval(of: .hour, for: cursor)?.start ?? cursor
+                let nextHourStart = calendar.date(byAdding: .hour, value: 1, to: hourFloor) ?? tomorrow
+                let segEnd = min(clampedEnd, nextHourStart)
+                guard segEnd > cursor else { break }
+                let mins = segEnd.timeIntervalSince(cursor) / 60.0
+                if hour >= 0 && hour < 24 && mins > 0 {
+                    hourly[hour] = min(60.0, hourly[hour] + mins)
+                }
+                cursor = segEnd
+            }
+        }
+
+        let todayTotal = TimeIntervalMerger.mergedMinutes(for: todaySamples)
+        let todayDb = Self.weightedAverageDecibels(for: todaySamples)
+        let weekDb = Self.weightedAverageDecibels(for: weekSamples)
+        let activeName = todaySamples.first.map { canonicalName(for: $0.deviceName) }
+            ?? deviceSummaries.first?.deviceName
+            ?? "earuseage"
+
+        let snapshot = EarWidgetSnapshot(
+            updatedAt: Date(),
+            todayTotalMinutes: todayTotal,
+            todayAverageDecibels: todayDb,
+            weekAverageDecibels: weekDb,
+            activeDeviceName: activeName,
+            hourlyMinutes: hourly
+        )
+        snapshot.saveToSharedStore()
     }
 
     private func buildOverview(from input: [AudioExposureSample]) -> UsageOverviewSummary {

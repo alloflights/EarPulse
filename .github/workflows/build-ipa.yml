@@ -64,10 +64,10 @@ jobs:
             gh release upload latest EarPulse.ipa --clobber
             gh release edit latest \
               --title "earuseage Latest" \
-              --notes "最新自动构建 iOS IPA（含玻璃质感桌面小组件，Commit: ${GITHUB_SHA::7}）"
+              --notes ""
           else
             gh release create latest EarPulse.ipa \
               --title "earuseage Latest" \
-              --notes "最新自动构建 iOS IPA（含玻璃质感桌面小组件，Commit: ${GITHUB_SHA::7}）" \
+              --notes "" \
               --latest
           fi
